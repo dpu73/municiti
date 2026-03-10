@@ -51,18 +51,19 @@ export const ROAD_TYPES = {
   },
 };
 
-let _nodeId = 0;
+let _nodeId    = 0;
 let _segmentId = 0;
 
 export class RoadGraph {
   constructor() {
-    this.nodes    = new Map(); // id -> node
-    this.segments = new Map(); // id -> segment
+    this.nodes    = new Map();
+    this.segments = new Map();
   }
 
-  getOrCreateNode(x, z, snapTolerance = 2) {
+  getOrCreateNode(x, z, snapTolerance = 3) {
     for (const node of this.nodes.values()) {
-      if (Math.abs(node.x - x) <= snapTolerance && Math.abs(node.z - z) <= snapTolerance) {
+      if (Math.abs(node.x - x) <= snapTolerance &&
+          Math.abs(node.z - z) <= snapTolerance) {
         return node;
       }
     }
@@ -71,14 +72,15 @@ export class RoadGraph {
     return node;
   }
 
-  addSegment(ax, az, bx, bz, roadType = 'asphalt') {
+  // controlPoint: optional {x, z} for curved segments
+  addSegment(ax, az, bx, bz, roadType = 'asphalt', controlPoint = null) {
     const nodeA = this.getOrCreateNode(ax, az);
     const nodeB = this.getOrCreateNode(bx, bz);
     if (nodeA.id === nodeB.id) return null;
 
-    const dx = bx - ax;
-    const dz = bz - az;
-    const length = Math.sqrt(dx * dx + dz * dz);
+    const length = controlPoint
+      ? this._bezierLength(ax, az, controlPoint.x, controlPoint.z, bx, bz)
+      : Math.sqrt((bx - ax) ** 2 + (bz - az) ** 2);
 
     const segment = {
       id: _segmentId++,
@@ -86,19 +88,20 @@ export class RoadGraph {
       nodeBId: nodeB.id,
       roadType,
       length,
-      condition: 1.0,
-      owner: 'player',
-      trafficLoad: 0,
+      condition:    1.0,
+      owner:        'player',
+      trafficLoad:  0,
+      controlPoint: controlPoint || null,
     };
 
     nodeA.segmentIds.push(segment.id);
     nodeB.segmentIds.push(segment.id);
     this.segments.set(segment.id, segment);
-
     this._updateIntersection(nodeA);
     this._updateIntersection(nodeB);
 
-    console.log(`[roads] Segment ${segment.id} added: ${roadType}, length ${length.toFixed(1)}, cost $${this.segmentCost(ax, az, bx, bz, roadType)}`);
+    const cost = Math.ceil(length * ROAD_TYPES[roadType].costPerUnit);
+    console.log(`[roads] Segment ${segment.id}: ${roadType}, len=${length.toFixed(1)}, cost=$${cost}`);
     return segment;
   }
 
@@ -106,10 +109,24 @@ export class RoadGraph {
     node.intersectionType = node.segmentIds.length >= 3 ? 'stop' : 'none';
   }
 
-  segmentCost(ax, az, bx, bz, roadType) {
-    const dx = bx - ax;
-    const dz = bz - az;
-    const length = Math.sqrt(dx * dx + dz * dz);
+  _bezierLength(ax, az, cx, cz, bx, bz, steps = 20) {
+    let len = 0;
+    let px = ax, pz = az;
+    for (let i = 1; i <= steps; i++) {
+      const t  = i / steps;
+      const it = 1 - t;
+      const nx = it * it * ax + 2 * it * t * cx + t * t * bx;
+      const nz = it * it * az + 2 * it * t * cz + t * t * bz;
+      len += Math.sqrt((nx - px) ** 2 + (nz - pz) ** 2);
+      px = nx; pz = nz;
+    }
+    return len;
+  }
+
+  segmentCost(ax, az, bx, bz, roadType, controlPoint = null) {
+    const length = controlPoint
+      ? this._bezierLength(ax, az, controlPoint.x, controlPoint.z, bx, bz)
+      : Math.sqrt((bx - ax) ** 2 + (bz - az) ** 2);
     return Math.ceil(length * ROAD_TYPES[roadType].costPerUnit);
   }
 }
