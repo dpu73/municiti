@@ -80,10 +80,8 @@ renderer.domElement.addEventListener('mousemove', e => {
 
   if (isPanning) {
     const panSpeed = spherical.radius * 0.001;
-    // right vector on the ground plane (perpendicular to camera direction)
     target.x -= Math.cos(spherical.theta) * dx * panSpeed;
     target.z += Math.sin(spherical.theta) * dx * panSpeed;
-    // forward vector on the ground plane
     target.x -= Math.sin(spherical.theta) * dy * panSpeed;
     target.z -= Math.cos(spherical.theta) * dy * panSpeed;
   }
@@ -103,8 +101,13 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// --- Version overlay ---
+const ts = new Date(document.lastModified);
+const pad = n => String(n).padStart(2, '0');
+const versionString = `MuniCity ${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+
 const version = document.createElement('div');
-version.textContent = 'MuniCity v0.1';
+version.textContent = versionString;
 version.style.cssText = `
   position: fixed;
   bottom: 12px;
