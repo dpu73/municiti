@@ -1,13 +1,15 @@
-import * as THREE        from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-import { createTile }    from './world/tile.js';
-import { RoadGraph }     from './world/roads.js';
-import { RoadRenderer }  from './world/roadrenderer.js';
-import { UnlockSystem }  from './systems/unlocks.js';
-import { HUD }           from './ui/hud.js';
-import { Toolbar }       from './ui/toolbar.js';
-import { RoadBuilder }   from './ui/roadbuilder.js';
+import * as THREE             from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import { createTile }         from './world/tile.js';
+import { RoadGraph }          from './world/roads.js';
+import { RoadRenderer }       from './world/roadrenderer.js';
+import { IntersectionSystem } from './world/intersections.js';
+import { UnlockSystem }       from './systems/unlocks.js';
+import { HUD }                from './ui/hud.js';
+import { Toolbar }            from './ui/toolbar.js';
+import { RoadBuilder }        from './ui/roadbuilder.js';
+import { IntersectionTool }   from './ui/intersectiontool.js';
 
-const UI_HEIGHT = 84; // 44px HUD + 40px toolbar
+const UI_HEIGHT = 84;
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -22,7 +24,9 @@ scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / (window.innerHeight - UI_HEIGHT), 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(
+  60, window.innerWidth / (window.innerHeight - UI_HEIGHT), 0.1, 1000
+);
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -48,33 +52,14 @@ const gameState = {
   year:            0,
   month:           1,
   mode:            'manager',
-  onFundsChanged:  () => hud.update(),
+  cityName:        null,
+  founded:         false,
+  onFundsChanged:  () => {},
   onUnlockChanged: () => {},
-  onToggleMode:    () => {
-    gameState.mode = gameState.mode === 'manager' ? 'streets' : 'manager';
-    hud.update();
-  },
-  onSkipMonth: () => {
-    gameState.month++;
-    if (gameState.month > 12) { gameState.month = 1; gameState.year++; unlocks.advanceYear(gameState.year); }
-    hud.update();
-  },
-  onSkipYear: () => {
-    gameState.year++;
-    gameState.month = 1;
-    unlocks.advanceYear(gameState.year);
-    hud.update();
-  },
-  onCameraAction: (action) => {
-    switch (action) {
-      case 'zoomIn':   spherical.radius = Math.max(20,  spherical.radius - 15); break;
-      case 'zoomOut':  spherical.radius = Math.min(200, spherical.radius + 15); break;
-      case 'rotLeft':  spherical.theta -= Math.PI / 2; break;
-      case 'rotRight': spherical.theta += Math.PI / 2; break;
-      case 'reset':    spherical = { theta: 0.4, phi: 0.6, radius: 100 }; target.set(0,0,0); break;
-    }
-    updateCamera();
-  },
+  onToggleMode:    () => {},
+  onSkipMonth:     () => {},
+  onSkipYear:      () => {},
+  onCameraAction:  () => {},
   stats: {
     roadSegmentsBuilt:   0,
     population:          0,
@@ -84,17 +69,82 @@ const gameState = {
 };
 
 // ── Systems ───────────────────────────────────────────────────────────────────
-const unlocks      = new UnlockSystem(gameState);
-const roadGraph    = new RoadGraph();
-const roadRenderer = new RoadRenderer(scene);
+const unlocks             = new UnlockSystem(gameState);
+const roadGraph           = new RoadGraph();
+const roadRenderer        = new RoadRenderer(scene);
+const intersectionSystem  = new IntersectionSystem(scene, roadGraph);
+
+// Wire intersection rebuilds into road graph
+const _origAdd    = roadGraph.addSegment.bind(roadGraph);
+const _origRemove = roadGraph.removeSegment.bind(roadGraph);
+
+roadGraph.addSegment = (...args) => {
+  const seg = _origAdd(...args);
+  if (seg) {
+    intersectionSystem.update(roadGraph.nodes.get(seg.nodeAId)?.id);
+    intersectionSystem.update(roadGraph.nodes.get(seg.nodeBId)?.id);
+  }
+  return seg;
+};
+
+roadGraph.removeSegment = (id) => {
+  const seg = roadGraph.segments.get(id);
+  const aId = seg?.nodeAId, bId = seg?.nodeBId;
+  _origRemove(id);
+  if (aId !== undefined) intersectionSystem.update(aId);
+  if (bId !== undefined) intersectionSystem.update(bId);
+};
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 const hud     = new HUD(gameState);
-const toolbar = new Toolbar(gameState);
+const toolbar = new Toolbar();
+
+// Wire game state callbacks now that hud exists
+gameState.onFundsChanged  = () => hud.update();
+gameState.onUnlockChanged = () => {};
+gameState.onToggleMode    = () => {
+  gameState.mode = gameState.mode === 'manager' ? 'streets' : 'manager';
+  hud.update();
+};
+gameState.onSkipMonth = () => {
+  gameState.month++;
+  if (gameState.month > 12) {
+    gameState.month = 1;
+    gameState.year++;
+    unlocks.advanceYear(gameState.year);
+  }
+  hud.update();
+};
+gameState.onSkipYear = () => {
+  gameState.year++;
+  gameState.month = 1;
+  unlocks.advanceYear(gameState.year);
+  hud.update();
+};
+gameState.onCameraAction = (action) => {
+  switch (action) {
+    case 'zoomIn':   spherical.radius = Math.max(20,  spherical.radius - 15); break;
+    case 'zoomOut':  spherical.radius = Math.min(200, spherical.radius + 15); break;
+    case 'rotLeft':  spherical.theta -= Math.PI / 2; break;
+    case 'rotRight': spherical.theta += Math.PI / 2; break;
+    case 'reset':
+      spherical.theta  = 0.4;
+      spherical.phi    = 0.6;
+      spherical.radius = 100;
+      target.set(0, 0, 0);
+      break;
+  }
+  updateCamera();
+};
 
 const roadBuilder = new RoadBuilder({
   camera, renderer, graph: roadGraph,
   roadRenderer, gameState, unlocks, toolbar,
+});
+
+const intersectionTool = new IntersectionTool({
+  camera, renderer, intersectionSystem,
+  gameState, toolbar, unlocks,
 });
 
 // ── Camera controls ───────────────────────────────────────────────────────────
@@ -112,19 +162,24 @@ function updateCamera() {
 }
 updateCamera();
 
+const isToolActive = () => roadBuilder.isActive || intersectionTool.isActive;
+
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (roadBuilder.isPlacing) return;
+  if (isToolActive()) return;
   if (e.button === 0) isDragging = true;
   if (e.button === 2) isPanning  = true;
   prevMouse = { x: e.clientX, y: e.clientY };
 });
 
-renderer.domElement.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+renderer.domElement.addEventListener('mouseup', () => {
+  isDragging = false;
+  isPanning  = false;
+});
 
 renderer.domElement.addEventListener('mousemove', e => {
-  if (roadBuilder.isPlacing) return;
+  if (isToolActive()) return;
   const dx = e.clientX - prevMouse.x;
   const dy = e.clientY - prevMouse.y;
   if (isDragging) {
@@ -160,7 +215,7 @@ const ver = document.createElement('div');
 ver.textContent = `MuniCity ${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
 ver.style.cssText = `
   position:fixed; bottom:8px; right:10px;
-  color:rgba(255,255,255,0.25); font:10px monospace; pointer-events:none; z-index:5;
+  color:rgba(255,255,255,0.2); font:10px monospace; pointer-events:none; z-index:5;
 `;
 document.body.appendChild(ver);
 

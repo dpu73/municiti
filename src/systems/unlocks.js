@@ -85,7 +85,57 @@ define('road_highway', {
     check: gs => gs.stats.neighborConnections >= 3,
   },
 });
+// ── Intersection unlocks ─────────────────────────────────────────────────────
 
+define('intersection_stop_sign', {
+  category:      'intersection',
+  name:          'Stop Sign',
+  description:   'Basic traffic control at intersections.',
+  countyYear:    0,
+  purchaseCost:  0,
+  startUnlocked: true,
+});
+
+define('intersection_crosswalk', {
+  category:      'intersection',
+  name:          'Crosswalk',
+  description:   'Pedestrian safety markings.',
+  countyYear:    0,
+  purchaseCost:  0,
+  startUnlocked: true,
+});
+
+define('intersection_streetlight', {
+  category:      'intersection',
+  name:          'Streetlight',
+  description:   'Illuminated intersections for night safety.',
+  countyYear:    1,
+  purchaseCost:  2000,
+  achievement: {
+    description: 'Reach population 100',
+    check: gs => gs.stats.population >= 100,
+  },
+});
+
+define('intersection_signal', {
+  category:      'intersection',
+  name:          'Traffic Signal',
+  description:   'Full signal control. Requires power grid.',
+  countyYear:    2,
+  purchaseCost:  10000,
+  achievement: {
+    description: 'Build 20 road segments',
+    check: gs => gs.stats.roadSegmentsBuilt >= 20,
+  },
+});
+
+define('intersection_smart_signal', {
+  category:      'intersection',
+  name:          'Smart Signal',
+  description:   'Adaptive timing system.',
+  countyYear:    5,
+  purchaseCost:  30000,
+});
 // ── (future categories stub here) ────────────────────────────────────────────
 // define('building_fire_station', { ... })
 // define('vehicle_snowplow', { ... })
