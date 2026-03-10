@@ -1,22 +1,16 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 
-// --- Renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// --- Scene ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // sky blue
+scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
 
-// --- Camera ---
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 40, 80);
-camera.lookAt(0, 0, 0);
 
-// --- Lighting ---
 const ambient = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambient);
 
@@ -33,25 +27,21 @@ sun.shadow.camera.top = 150;
 sun.shadow.camera.bottom = -150;
 scene.add(sun);
 
-// --- Terrain Tile ---
-// One township tile = 100x100 units
 const tileSize = 100;
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(tileSize, tileSize, 10, 10),
-  new THREE.MeshLambertMaterial({ color: 0x5a8a3c }) // grass green
+  new THREE.MeshLambertMaterial({ color: 0x5a8a3c })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// --- Grid overlay so the tile feels like a grid ---
 const grid = new THREE.GridHelper(tileSize, 10, 0x000000, 0x000000);
 grid.material.opacity = 0.15;
 grid.material.transparent = true;
 grid.position.y = 0.1;
 scene.add(grid);
 
-// --- Simple orbit camera controls ---
 let isDragging = false;
 let isPanning = false;
 let prevMouse = { x: 0, y: 0 };
@@ -90,16 +80,12 @@ renderer.domElement.addEventListener('mousemove', e => {
 
   if (isPanning) {
     const panSpeed = spherical.radius * 0.001;
-    const right = new THREE.Vector3();
-    const up = new THREE.Vector3(0, 1, 0);
-    right.crossVectors(up, new THREE.Vector3(
-      Math.sin(spherical.phi) * Math.sin(spherical.theta),
-      Math.cos(spherical.phi),
-      Math.sin(spherical.phi) * Math.cos(spherical.theta)
-    )).normalize();
-    target.addScaledVector(right, dx * panSpeed);
-    target.x += Math.cos(spherical.theta) * dy * panSpeed;
-    target.z += Math.sin(spherical.theta) * dy * panSpeed;
+    // right vector on the ground plane (perpendicular to camera direction)
+    target.x -= Math.cos(spherical.theta) * dx * panSpeed;
+    target.z += Math.sin(spherical.theta) * dx * panSpeed;
+    // forward vector on the ground plane
+    target.x += Math.sin(spherical.theta) * dy * panSpeed;
+    target.z += Math.cos(spherical.theta) * dy * panSpeed;
   }
 
   prevMouse = { x: e.clientX, y: e.clientY };
@@ -111,14 +97,24 @@ renderer.domElement.addEventListener('wheel', e => {
   updateCamera();
 });
 
-// --- Resize ---
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- Loop ---
+const version = document.createElement('div');
+version.textContent = 'MuniCity v0.1';
+version.style.cssText = `
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  color: rgba(255,255,255,0.6);
+  font: 12px monospace;
+  pointer-events: none;
+`;
+document.body.appendChild(version);
+
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
