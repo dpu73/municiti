@@ -53,31 +53,59 @@ scene.add(grid);
 
 // --- Simple orbit camera controls ---
 let isDragging = false;
+let isPanning = false;
 let prevMouse = { x: 0, y: 0 };
 let spherical = { theta: 0.4, phi: 0.6, radius: 100 };
+let target = new THREE.Vector3(0, 0, 0);
 
 function updateCamera() {
-  camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
-  camera.position.y = spherical.radius * Math.cos(spherical.phi);
-  camera.position.z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
-  camera.lookAt(0, 0, 0);
+  camera.position.x = target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+  camera.position.y = target.y + spherical.radius * Math.cos(spherical.phi);
+  camera.position.z = target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+  camera.lookAt(target);
 }
 updateCamera();
 
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
 renderer.domElement.addEventListener('mousedown', e => {
-  isDragging = true;
+  if (e.button === 0) isDragging = true;
+  if (e.button === 2) isPanning = true;
   prevMouse = { x: e.clientX, y: e.clientY };
 });
-renderer.domElement.addEventListener('mouseup', () => isDragging = false);
+
+renderer.domElement.addEventListener('mouseup', () => {
+  isDragging = false;
+  isPanning = false;
+});
+
 renderer.domElement.addEventListener('mousemove', e => {
-  if (!isDragging) return;
   const dx = e.clientX - prevMouse.x;
   const dy = e.clientY - prevMouse.y;
-  spherical.theta -= dx * 0.005;
-  spherical.phi = Math.max(0.1, Math.min(Math.PI / 2, spherical.phi + dy * 0.005));
+
+  if (isDragging) {
+    spherical.theta -= dx * 0.005;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI / 2, spherical.phi - dy * 0.005));
+  }
+
+  if (isPanning) {
+    const panSpeed = spherical.radius * 0.001;
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    right.crossVectors(up, new THREE.Vector3(
+      Math.sin(spherical.phi) * Math.sin(spherical.theta),
+      Math.cos(spherical.phi),
+      Math.sin(spherical.phi) * Math.cos(spherical.theta)
+    )).normalize();
+    target.addScaledVector(right, dx * panSpeed);
+    target.x += Math.cos(spherical.theta) * dy * panSpeed;
+    target.z += Math.sin(spherical.theta) * dy * panSpeed;
+  }
+
   prevMouse = { x: e.clientX, y: e.clientY };
   updateCamera();
 });
+
 renderer.domElement.addEventListener('wheel', e => {
   spherical.radius = Math.max(20, Math.min(200, spherical.radius + e.deltaY * 0.1));
   updateCamera();
