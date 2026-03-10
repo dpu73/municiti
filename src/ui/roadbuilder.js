@@ -16,10 +16,11 @@ export class RoadBuilder {
     this.unlocks      = unlocks;
     this.toolbar      = toolbar;
 
-    this.active       = false;
-    this.subMode      = 'build'; // 'build' | 'delete'
-    this.selectedType = 'dirt';
-    this.startNode    = null;
+    this.active        = false;
+    this.subMode       = 'build';
+    this.selectedType  = 'dirt';
+    this.startNode     = null;
+    this._exitDir      = null; // {dx, dz} normalized exit direction of last segment
 
     this._ray    = new THREE.Raycaster();
     this._ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -28,18 +29,12 @@ export class RoadBuilder {
     this._mx     = 0;
     this._my     = 0;
 
-    // Register in toolbar
-    this._toolBtn  = toolbar.addTool('road', '🛣 Roads', 'Build and edit roads', () => this._onToolClick());
+    this._toolBtn = toolbar.addTool('road', '🛣 Roads', 'Build and edit roads', () => this._onToolClick());
     toolbar.addSeparator();
 
-    // Context area — injected when tool is active
-    this._context  = toolbar.getContextArea();
-
-    // Cost tag
-    this._costTag  = this._buildCostTag();
-
-    // Picker panel (slides down below toolbar)
-    this._picker   = this._buildPicker();
+    this._context = toolbar.getContextArea();
+    this._costTag = this._buildCostTag();
+    this._picker  = this._buildPicker();
     toolbar.attachPicker(this._picker);
 
     gameState.onUnlockChanged = () => this._refreshPicker();
@@ -50,45 +45,70 @@ export class RoadBuilder {
     window.addEventListener('keydown',                  this._onKey.bind(this));
   }
 
-  // ── public ───────────────────────────────────────────────────────────────
-
   get isPlacing() { return this.active && this.subMode === 'build' && this.startNode !== null; }
   get isActive()  { return this.active; }
 
   // ── routing ───────────────────────────────────────────────────────────────
+  // Returns array of { ax, az, bx, bz, cp? }
 
-  // Returns { segments, tooTight }
-  // Each segment: { ax, az, bx, bz, cp? }
   _route(sx, sz, ex, ez) {
     const adx = Math.abs(ex - sx);
     const adz = Math.abs(ez - sz);
+    const minR = ROAD_TYPES[this.selectedType].minTurnRadius;
 
-    // Pure straight
-    if (adx < 2) return { segs: [{ ax: sx, az: sz, bx: sx, bz: ez }], tooTight: false };
-    if (adz < 2) return { segs: [{ ax: sx, az: sz, bx: ex, bz: sz }], tooTight: false };
+    // Pure straight (nearly axis-aligned)
+    if (adx < 2) return [{ ax: sx, az: sz, bx: sx, bz: ez }];
+    if (adz < 2) return [{ ax: sx, az: sz, bx: ex, bz: sz }];
 
-    // L-turn — corner at (ex, sz)
-    const corner  = { x: ex, z: sz };
-    const leg1    = adx; // sx→corner
-    const leg2    = adz; // corner→ez
-    const minR    = ROAD_TYPES[this.selectedType].minTurnRadius;
+    // If we have an exit direction from the previous segment, use it
+    // to create a smooth tangent-continuous curve
+    if (this._exitDir) {
+      const { dx: edx, dz: edz } = this._exitDir;
+      // Control point: project along exit direction far enough
+      // to reach roughly halfway to the end point
+      const dist = Math.sqrt(adx*adx + adz*adz) * 0.5;
+      const cp = {
+        x: sx + edx * dist,
+        z: sz + edz * dist,
+      };
+      return [{ ax: sx, az: sz, bx: ex, bz: ez, cp }];
+    }
+
+    // No exit direction — standard L-turn
+    const corner = { x: ex, z: sz };
+    const leg1   = adx;
+    const leg2   = adz;
 
     if (leg1 >= minR && leg2 >= minR) {
-      // Both legs long enough — smooth bezier
-      return {
-        segs: [{ ax: sx, az: sz, bx: ex, bz: ez, cp: corner }],
-        tooTight: false,
-      };
-    } else {
-      // Too tight for a curve — two straight segments
-      return {
-        segs: [
-          { ax: sx, az: sz, bx: corner.x, bz: corner.z },
-          { ax: corner.x, az: corner.z, bx: ex, bz: ez },
-        ],
-        tooTight: true,
-      };
+      // Both legs long enough — smooth bezier through corner
+      return [{ ax: sx, az: sz, bx: ex, bz: ez, cp: corner }];
     }
+
+    // Too tight — two straight segments
+    return [
+      { ax: sx, az: sz, bx: corner.x, bz: corner.z },
+      { ax: corner.x, az: corner.z, bx: ex, bz: ez },
+    ];
+  }
+
+  // Compute exit direction of a segment at its B end
+  _segExitDir(seg) {
+    const a = this.graph.nodes.get(seg.nodeAId);
+    const b = this.graph.nodes.get(seg.nodeBId);
+    if (!a || !b) return null;
+
+    if (seg.controlPoint) {
+      // Bezier exit tangent at t=1: direction from control point to B
+      const dx = b.x - seg.controlPoint.x;
+      const dz = b.z - seg.controlPoint.z;
+      const len = Math.sqrt(dx*dx + dz*dz) || 1;
+      return { dx: dx/len, dz: dz/len };
+    }
+
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.sqrt(dx*dx + dz*dz) || 1;
+    return { dx: dx/len, dz: dz/len };
   }
 
   // ── events ────────────────────────────────────────────────────────────────
@@ -112,22 +132,21 @@ export class RoadBuilder {
 
     if (!this.startNode) return;
 
-    const { segs, tooTight } = this._route(
+    const segs = this._route(
       this.startNode.x, this.startNode.z,
       this._snap.x, this._snap.z
     );
 
-    // Preview each segment
     this.roadRenderer.clearPreview();
     for (const s of segs) {
       this.roadRenderer.showPreview(s.ax, s.az, s.bx, s.bz, this.selectedType, s.cp ?? null);
     }
 
-    // Cost
     let cost = 0;
     for (const s of segs) {
       cost += this.graph.segmentCost(s.ax, s.az, s.bx, s.bz, this.selectedType, s.cp ?? null);
     }
+    const tooTight = segs.length > 1 && !segs[0].cp;
     this._showCost(cost, tooTight);
   }
 
@@ -148,33 +167,41 @@ export class RoadBuilder {
 
     if (!this.startNode) {
       this.startNode = { x: this._snap.x, z: this._snap.z };
+      this._exitDir  = null;
       this._setHint('Click end point · Right-click cancel · Esc exit');
       return;
     }
 
-    const { segs } = this._route(
+    const segs = this._route(
       this.startNode.x, this.startNode.z,
       this._snap.x, this._snap.z
     );
 
     let cost = 0;
-    for (const s of segs) cost += this.graph.segmentCost(s.ax, s.az, s.bx, s.bz, this.selectedType, s.cp ?? null);
+    for (const s of segs) {
+      cost += this.graph.segmentCost(s.ax, s.az, s.bx, s.bz, this.selectedType, s.cp ?? null);
+    }
 
     if (cost > this.gameState.funds) { this._flash('Insufficient funds!', '#c0392b'); return; }
 
     this.gameState.funds -= cost;
     this.gameState.onFundsChanged();
-    this.gameState.stats.roadSegmentsBuilt = (this.gameState.stats.roadSegmentsBuilt || 0) + segs.length;
+    this.gameState.stats.roadSegmentsBuilt =
+      (this.gameState.stats.roadSegmentsBuilt || 0) + segs.length;
+
     this.roadRenderer.clearPreview();
 
-    let lastEnd = null;
+    let lastSeg = null;
     for (const s of segs) {
       const seg = this.graph.addSegment(s.ax, s.az, s.bx, s.bz, this.selectedType, s.cp ?? null);
-      if (seg) this.roadRenderer.renderSegment(seg, this.graph);
-      lastEnd = { x: s.bx, z: s.bz };
+      if (seg) { this.roadRenderer.renderSegment(seg, this.graph); lastSeg = seg; }
     }
 
-    this.startNode = lastEnd;
+    // Chain: end becomes new start, carry exit direction for smooth continuation
+    const lastRouted = segs[segs.length - 1];
+    this.startNode = { x: lastRouted.bx, z: lastRouted.bz };
+    this._exitDir  = lastSeg ? this._segExitDir(lastSeg) : null;
+
     this.unlocks.advanceYear(this.gameState.year);
   }
 
@@ -184,6 +211,7 @@ export class RoadBuilder {
     if (!this.active) return;
     if (this.startNode) {
       this.startNode = null;
+      this._exitDir  = null;
       this.roadRenderer.clearPreview();
       this._hideCost();
       this._setHint('Click start point · Esc exit');
@@ -195,6 +223,7 @@ export class RoadBuilder {
       if (!this.active) return;
       if (this.startNode) {
         this.startNode = null;
+        this._exitDir  = null;
         this.roadRenderer.clearPreview();
         this._hideCost();
         this._setHint('Click start point · Esc exit');
@@ -216,6 +245,7 @@ export class RoadBuilder {
     this.active    = true;
     this.subMode   = 'build';
     this.startNode = null;
+    this._exitDir  = null;
     this.toolbar.setActive('road');
     this._hidePicker();
     this._injectContext();
@@ -225,6 +255,7 @@ export class RoadBuilder {
   deactivate() {
     this.active    = false;
     this.startNode = null;
+    this._exitDir  = null;
     this.roadRenderer.clearPreview();
     this.roadRenderer.hideSnap();
     this.roadRenderer.clearHighlight();
@@ -238,10 +269,9 @@ export class RoadBuilder {
 
   _injectContext() {
     this._clearContext();
-    const ctx = this._context;
+    const ctx  = this._context;
+    const type = ROAD_TYPES[this.selectedType];
 
-    // Type swatch + name
-    const type   = ROAD_TYPES[this.selectedType];
     const swatch = document.createElement('div');
     swatch.style.cssText = `
       width:16px; height:16px; border-radius:2px; flex-shrink:0;
@@ -254,7 +284,6 @@ export class RoadBuilder {
     name.textContent = type.name;
     ctx.appendChild(name);
 
-    // Change type button
     const changeBtn = document.createElement('button');
     changeBtn.textContent = '▼ Change';
     changeBtn.style.cssText = `
@@ -264,18 +293,18 @@ export class RoadBuilder {
     `;
     changeBtn.addEventListener('click', () => {
       const visible = this._picker.style.display !== 'none';
-      if (visible) this._hidePicker();
-      else this._showPicker();
+      if (visible) this._hidePicker(); else this._showPicker();
     });
     ctx.appendChild(changeBtn);
 
-    // Separator
     const sep = document.createElement('div');
     sep.style.cssText = 'width:1px; height:20px; background:#222; margin:0 8px;';
     ctx.appendChild(sep);
 
-    // Build / Delete toggle
-    for (const [mode, label, color] of [['build','✏ Build','#27ae60'],['delete','🗑 Delete','#c0392b']]) {
+    for (const [mode, label, color] of [
+      ['build',  '✏ Build',    '#27ae60'],
+      ['delete', '🗑 Delete', '#c0392b'],
+    ]) {
       const btn = document.createElement('button');
       btn.id = `road-mode-${mode}`;
       btn.textContent = label;
@@ -286,35 +315,32 @@ export class RoadBuilder {
         color:${this.subMode === mode ? '#fff' : '#888'};
       `;
       btn.addEventListener('click', () => {
-        this.subMode = mode;
+        this.subMode   = mode;
         this.startNode = null;
+        this._exitDir  = null;
         this.roadRenderer.clearPreview();
         this._refreshModeButtons();
         this._setHint(mode === 'build'
           ? 'Click start point · Esc exit'
-          : 'Click a road to delete it · Esc exit');
+          : 'Click a road segment to delete it · Esc exit');
       });
       ctx.appendChild(btn);
     }
 
-    // Hint
     const hint = document.createElement('div');
     hint.id = 'road-hint';
-    hint.style.cssText = 'font-size:10px; color:#444; margin-left:12px; font-family:monospace;';
+    hint.style.cssText = 'font-size:10px; color:#555; margin-left:12px; font-family:monospace;';
     ctx.appendChild(hint);
   }
 
-  _clearContext() {
-    this._context.innerHTML = '';
-  }
+  _clearContext() { this._context.innerHTML = ''; }
 
   _refreshModeButtons() {
     for (const mode of ['build','delete']) {
       const btn = document.getElementById(`road-mode-${mode}`);
       if (!btn) continue;
       const on  = this.subMode === mode;
-      const col = mode === 'build' ? '#27ae60' : '#c0392b';
-      btn.style.background = on ? col : '#1a1a1a';
+      btn.style.background = on ? (mode === 'build' ? '#27ae60' : '#c0392b') : '#1a1a1a';
       btn.style.color      = on ? '#fff' : '#888';
     }
   }
@@ -324,7 +350,7 @@ export class RoadBuilder {
     if (el) el.textContent = text;
   }
 
-  // ── picker panel ──────────────────────────────────────────────────────────
+  // ── picker ────────────────────────────────────────────────────────────────
 
   _buildPicker() {
     const panel = document.createElement('div');
@@ -377,7 +403,9 @@ export class RoadBuilder {
       info.style.flex = '1';
       info.innerHTML = `
         <div style="font-size:12px;font-weight:bold;color:${state==='locked'?'#333':'#ccc'}">${type.name}</div>
-        <div style="font-size:9px;color:#3a3a3a;margin-top:1px;">${type.lanes} lane${type.lanes>1?'s':''} · ${type.speedLimit}mph · $${type.costPerUnit}/unit</div>
+        <div style="font-size:9px;color:#3a3a3a;margin-top:1px;">
+          ${type.lanes} lane${type.lanes>1?'s':''} · ${type.speedLimit}mph · $${type.costPerUnit}/unit
+        </div>
       `;
       card.appendChild(info);
 
@@ -386,19 +414,17 @@ export class RoadBuilder {
 
       if (state === 'unlocked') {
         badge.style.color = isSelected ? '#5dade2' : '#2a2a2a';
-        badge.textContent  = isSelected ? '✓' : '✓';
-        card.addEventListener('click', () => {
-          this.activate(key);
-        });
+        badge.textContent = isSelected ? '✓' : '✓';
+        card.addEventListener('click', () => this.activate(key));
       } else if (state === 'available') {
         const b = document.createElement('button');
         b.style.cssText = `
           padding:3px 7px; border-radius:3px; border:none; cursor:pointer;
           background:#784212; color:#f0b27a; font:bold 9px monospace;
         `;
-        b.textContent = `Unlock\n$${unlockData.purchaseCost.toLocaleString()}`;
-        b.addEventListener('click', e => {
-          e.stopPropagation();
+        b.textContent = `Unlock $${unlockData.purchaseCost.toLocaleString()}`;
+        b.addEventListener('click', ev => {
+          ev.stopPropagation();
           const res = this.unlocks.purchase(unlockKey);
           if (!res.ok) this._flash(res.reason, '#c0392b');
           else this._flash(`${type.name} unlocked!`, '#27ae60');
@@ -406,7 +432,7 @@ export class RoadBuilder {
         badge.appendChild(b);
       } else {
         badge.style.color = '#2a2a2a';
-        badge.innerHTML   = `🔒 Yr ${unlockData?.countyYear ?? '?'}`;
+        badge.innerHTML = `🔒 Yr ${unlockData?.countyYear ?? '?'}`;
         if (unlockData?.achievement) {
           badge.innerHTML += `<div style="font-size:8px;color:#222;margin-top:2px;">${unlockData.achievement.description}</div>`;
         }
@@ -430,8 +456,7 @@ export class RoadBuilder {
   // ── helpers ───────────────────────────────────────────────────────────────
 
   _rawWorldPos(e) {
-    const canvas = this.renderer.domElement;
-    const rect   = canvas.getBoundingClientRect();
+    const rect = this.renderer.domElement.getBoundingClientRect();
     this._mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
     this._mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
     this._ray.setFromCamera(this._mouse, this.camera);
