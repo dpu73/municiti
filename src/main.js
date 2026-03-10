@@ -1,16 +1,21 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import { createTile } from './world/tile.js';
 
+// --- Renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
+// --- Scene ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
 
+// --- Camera ---
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
+// --- Lighting ---
 const ambient = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambient);
 
@@ -27,21 +32,10 @@ sun.shadow.camera.top = 150;
 sun.shadow.camera.bottom = -150;
 scene.add(sun);
 
-const tileSize = 100;
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(tileSize, tileSize, 10, 10),
-  new THREE.MeshLambertMaterial({ color: 0x5a8a3c })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
+// --- World ---
+const tile = createTile(scene);
 
-const grid = new THREE.GridHelper(tileSize, 10, 0x000000, 0x000000);
-grid.material.opacity = 0.15;
-grid.material.transparent = true;
-grid.position.y = 0.1;
-scene.add(grid);
-
+// --- Camera controls ---
 let isDragging = false;
 let isPanning = false;
 let prevMouse = { x: 0, y: 0 };
@@ -118,6 +112,7 @@ version.style.cssText = `
 `;
 document.body.appendChild(version);
 
+// --- Loop ---
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
