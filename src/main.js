@@ -1,14 +1,19 @@
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import * as THREE        from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import { createTile }    from './world/tile.js';
 import { RoadGraph }     from './world/roads.js';
 import { RoadRenderer }  from './world/roadrenderer.js';
-import { RoadBuilder }   from './ui/roadbuilder.js';
 import { UnlockSystem }  from './systems/unlocks.js';
+import { HUD }           from './ui/hud.js';
+import { Toolbar }       from './ui/toolbar.js';
+import { RoadBuilder }   from './ui/roadbuilder.js';
+
+const UI_HEIGHT = 84; // 44px HUD + 40px toolbar
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight - UI_HEIGHT);
 renderer.shadowMap.enabled = true;
+renderer.domElement.style.cssText = `position:fixed; top:${UI_HEIGHT}px; left:0;`;
 document.body.appendChild(renderer.domElement);
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -17,7 +22,7 @@ scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / (window.innerHeight - UI_HEIGHT), 0.1, 1000);
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -41,11 +46,39 @@ const tile = createTile(scene);
 const gameState = {
   funds:           100000,
   year:            0,
-  onFundsChanged:  () => {},
+  month:           1,
+  mode:            'manager',
+  onFundsChanged:  () => hud.update(),
   onUnlockChanged: () => {},
+  onToggleMode:    () => {
+    gameState.mode = gameState.mode === 'manager' ? 'streets' : 'manager';
+    hud.update();
+  },
+  onSkipMonth: () => {
+    gameState.month++;
+    if (gameState.month > 12) { gameState.month = 1; gameState.year++; unlocks.advanceYear(gameState.year); }
+    hud.update();
+  },
+  onSkipYear: () => {
+    gameState.year++;
+    gameState.month = 1;
+    unlocks.advanceYear(gameState.year);
+    hud.update();
+  },
+  onCameraAction: (action) => {
+    switch (action) {
+      case 'zoomIn':   spherical.radius = Math.max(20,  spherical.radius - 15); break;
+      case 'zoomOut':  spherical.radius = Math.min(200, spherical.radius + 15); break;
+      case 'rotLeft':  spherical.theta -= Math.PI / 2; break;
+      case 'rotRight': spherical.theta += Math.PI / 2; break;
+      case 'reset':    spherical = { theta: 0.4, phi: 0.6, radius: 100 }; target.set(0,0,0); break;
+    }
+    updateCamera();
+  },
   stats: {
-    roadSegmentsBuilt: 0,
-    population:        0,
+    roadSegmentsBuilt:   0,
+    population:          0,
+    happiness:           100,
     neighborConnections: 0,
   },
 };
@@ -56,9 +89,12 @@ const roadGraph    = new RoadGraph();
 const roadRenderer = new RoadRenderer(scene);
 
 // ── UI ────────────────────────────────────────────────────────────────────────
+const hud     = new HUD(gameState);
+const toolbar = new Toolbar(gameState);
+
 const roadBuilder = new RoadBuilder({
   camera, renderer, graph: roadGraph,
-  roadRenderer, gameState, unlocks,
+  roadRenderer, gameState, unlocks, toolbar,
 });
 
 // ── Camera controls ───────────────────────────────────────────────────────────
@@ -79,19 +115,16 @@ updateCamera();
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (roadBuilder.isActive) return;
+  if (roadBuilder.isPlacing) return;
   if (e.button === 0) isDragging = true;
   if (e.button === 2) isPanning  = true;
   prevMouse = { x: e.clientX, y: e.clientY };
 });
 
-renderer.domElement.addEventListener('mouseup', () => {
-  isDragging = false;
-  isPanning  = false;
-});
+renderer.domElement.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
 
 renderer.domElement.addEventListener('mousemove', e => {
-  if (roadBuilder.isActive) return;
+  if (roadBuilder.isPlacing) return;
   const dx = e.clientX - prevMouse.x;
   const dy = e.clientY - prevMouse.y;
   if (isDragging) {
@@ -115,9 +148,9 @@ renderer.domElement.addEventListener('wheel', e => {
 });
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = window.innerWidth / (window.innerHeight - UI_HEIGHT);
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight - UI_HEIGHT);
 });
 
 // ── Version overlay ───────────────────────────────────────────────────────────
@@ -126,8 +159,8 @@ const pad = n => String(n).padStart(2, '0');
 const ver = document.createElement('div');
 ver.textContent = `MuniCity ${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
 ver.style.cssText = `
-  position:fixed; bottom:62px; right:12px;
-  color:rgba(255,255,255,0.4); font:11px monospace; pointer-events:none; z-index:5;
+  position:fixed; bottom:8px; right:10px;
+  color:rgba(255,255,255,0.25); font:10px monospace; pointer-events:none; z-index:5;
 `;
 document.body.appendChild(ver);
 
