@@ -84,8 +84,8 @@ renderer.domElement.addEventListener('mousemove', e => {
     target.x -= Math.cos(spherical.theta) * dx * panSpeed;
     target.z += Math.sin(spherical.theta) * dx * panSpeed;
     // forward vector on the ground plane
-    target.x += Math.sin(spherical.theta) * dy * panSpeed;
-    target.z += Math.cos(spherical.theta) * dy * panSpeed;
+    target.x -= Math.sin(spherical.theta) * dy * panSpeed;
+    target.z -= Math.cos(spherical.theta) * dy * panSpeed;
   }
 
   prevMouse = { x: e.clientX, y: e.clientY };
