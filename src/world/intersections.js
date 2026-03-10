@@ -45,7 +45,7 @@ export const INTERSECTION_UPGRADES = {
   },
 };
 
-const UPGRADE_ORDER = ['none','stop_sign','crosswalk','streetlight','signal','smart_signal'];
+export const UPGRADE_ORDER = ['none','stop_sign','crosswalk','streetlight','signal','smart_signal'];
 
 const ROAD_Y      = 0.15;
 const MARKER_Y    = 0.22;
