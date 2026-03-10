@@ -3,22 +3,23 @@ import { createTile }    from './world/tile.js';
 import { RoadGraph }     from './world/roads.js';
 import { RoadRenderer }  from './world/roadrenderer.js';
 import { RoadBuilder }   from './ui/roadbuilder.js';
+import { UnlockSystem }  from './systems/unlocks.js';
 
-// ── Renderer ────────────────────────────────────────────────────────────────
+// ── Renderer ──────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// ── Scene ────────────────────────────────────────────────────────────────────
+// ── Scene ─────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 100, 400);
 
-// ── Camera ───────────────────────────────────────────────────────────────────
+// ── Camera ────────────────────────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-// ── Lighting ─────────────────────────────────────────────────────────────────
+// ── Lighting ──────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const sun = new THREE.DirectionalLight(0xfffbe6, 1.2);
 sun.position.set(80, 120, 60);
@@ -36,18 +37,29 @@ scene.add(sun);
 // ── World ─────────────────────────────────────────────────────────────────────
 const tile = createTile(scene);
 
-// ── Road system ───────────────────────────────────────────────────────────────
+// ── Game state ────────────────────────────────────────────────────────────────
+const gameState = {
+  funds:           100000,
+  year:            0,
+  onFundsChanged:  () => {},
+  onUnlockChanged: () => {},
+  stats: {
+    roadSegmentsBuilt: 0,
+    population:        0,
+    neighborConnections: 0,
+  },
+};
+
+// ── Systems ───────────────────────────────────────────────────────────────────
+const unlocks      = new UnlockSystem(gameState);
 const roadGraph    = new RoadGraph();
 const roadRenderer = new RoadRenderer(scene);
 
-// ── Game state ────────────────────────────────────────────────────────────────
-const gameState = {
-  funds: 100000,
-  onFundsChanged: () => {}, // wired by RoadBuilder
-};
-
-// ── Road builder UI ───────────────────────────────────────────────────────────
-const roadBuilder = new RoadBuilder({ camera, renderer, graph: roadGraph, roadRenderer, gameState });
+// ── UI ────────────────────────────────────────────────────────────────────────
+const roadBuilder = new RoadBuilder({
+  camera, renderer, graph: roadGraph,
+  roadRenderer, gameState, unlocks,
+});
 
 // ── Camera controls ───────────────────────────────────────────────────────────
 let isDragging = false;
@@ -67,7 +79,7 @@ updateCamera();
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (roadBuilder.isActive) return; // road builder owns the mouse
+  if (roadBuilder.isActive) return;
   if (e.button === 0) isDragging = true;
   if (e.button === 2) isPanning  = true;
   prevMouse = { x: e.clientX, y: e.clientY };
@@ -82,7 +94,6 @@ renderer.domElement.addEventListener('mousemove', e => {
   if (roadBuilder.isActive) return;
   const dx = e.clientX - prevMouse.x;
   const dy = e.clientY - prevMouse.y;
-
   if (isDragging) {
     spherical.theta -= dx * 0.005;
     spherical.phi = Math.max(0.1, Math.min(Math.PI / 2, spherical.phi - dy * 0.005));
@@ -115,8 +126,8 @@ const pad = n => String(n).padStart(2, '0');
 const ver = document.createElement('div');
 ver.textContent = `MuniCity ${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
 ver.style.cssText = `
-  position:fixed; bottom:66px; right:12px;
-  color:rgba(255,255,255,0.5); font:12px monospace; pointer-events:none;
+  position:fixed; bottom:62px; right:12px;
+  color:rgba(255,255,255,0.4); font:11px monospace; pointer-events:none; z-index:5;
 `;
 document.body.appendChild(ver);
 
