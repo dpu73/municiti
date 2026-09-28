@@ -7,24 +7,26 @@
 <style>
   :root { --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --fg:#ddd; --dim:#777; --acc:#6fbf73; --warn:#e0a458; --bad:#d9534f; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 ui-monospace, Menlo, Consolas, monospace; }
   header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
-  header h1 { margin:0; font-size:15px; font-weight:600; letter-spacing:.04em; }
+  header h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.04em; }
   header span { color:var(--dim); }
-  main { display:grid; grid-template-columns: 260px 1fr 300px; min-height:calc(100vh - 45px); }
+  main { display:grid; grid-template-columns: 300px 1fr 0; min-height:calc(100vh - 45px); }
   aside, section { padding:14px; }
   aside { background:var(--panel); border-right:1px solid var(--line); }
-  aside.right { border-right:0; border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 45px); }
-  h2 { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); margin:14px 0 6px; }
+  main.showcfg { grid-template-columns: 300px 1fr 340px; }
+  main.showcfg aside.right { display:block; }
+  aside.right { display:none; border-right:0; border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 45px); }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); margin:14px 0 6px; }
   h2:first-child { margin-top:0; }
   label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:4px 0; }
   label span { color:var(--dim); }
-  input[type=number], select { width:110px; background:#0c0c0c; color:var(--fg); border:1px solid var(--line); padding:4px 6px; font:inherit; text-align:right; }
+  input[type=number], select { width:120px; font-size:15px; background:#0c0c0c; color:var(--fg); border:1px solid var(--line); padding:4px 6px; font:inherit; text-align:right; }
   input.dirty { border-color:var(--warn); }
   button { background:var(--acc); color:#0c0c0c; border:0; padding:8px 12px; font:inherit; font-weight:700; cursor:pointer; width:100%; margin-top:10px; }
   button.ghost { background:transparent; color:var(--dim); border:1px solid var(--line); font-weight:400; }
   table { border-collapse:collapse; width:100%; }
-  th, td { text-align:right; padding:3px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th, td { text-align:right; padding:6px 12px; font-size:15px; border-bottom:1px solid var(--line); white-space:nowrap; }
   th { color:var(--dim); font-weight:500; position:sticky; top:0; background:var(--bg); }
   td.ev { text-align:left; color:var(--warn); }
   tr.inc td { color:var(--acc); }
@@ -32,7 +34,8 @@
   .final { margin:10px 0 0; color:var(--dim); }
   .final b { color:var(--fg); }
   .wrap { overflow:auto; max-height:calc(100vh - 140px); }
-  small { color:var(--dim); display:block; margin-top:8px; line-height:1.5; }
+  small { color:var(--dim); display:block; margin-top:8px; line-height:1.5; font-size:13px; }
+  header button.cfgToggle { width:auto; margin:0 0 0 auto; padding:5px 10px; font-size:13px; }
   .row { display:flex; gap:6px; } .row button { margin-top:10px; }
   button:disabled { opacity:.35; cursor:default; }
   .summary { background:#0c0c0c; border:1px solid var(--line); padding:8px; margin:6px 0 10px; line-height:1.6; }
@@ -43,7 +46,7 @@
 </style>
 </head>
 <body>
-<header><h1>MUNICITY</h1><span>sim bench · one turn = one month · <a href="docs/one-turn-spec.md" style="color:var(--dim)">spec</a></span></header>
+<header><h1>MUNICITY</h1><span>sim bench · one turn = one month · <a href="docs/one-turn-spec.md" style="color:var(--dim)">spec</a></span><button class="ghost cfgToggle" id="cfgToggle">Config</button></header>
 <main>
   <aside>
     <h2 id="budgetTitle">Turn zero</h2>
@@ -246,6 +249,7 @@
     renderRows(game.rows, 1); setPlayUI();
   });
 
+  $('cfgToggle').addEventListener('click', () => document.querySelector('main').classList.toggle('showcfg'));
   renderConfig();
   setPlayUI();
   $('run').click();
