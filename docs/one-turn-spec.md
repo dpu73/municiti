@@ -344,6 +344,43 @@ old random grant event goes away once this exists.
 
 **Inflation.** Slow price escalator on everything, 2–3%/yr. Parked; it's a difficulty dial.
 
+## 12b. Climate, procurement, service triangle — designed, not built (2026-09-28)
+
+**Why weather comes next.** The first thing worth buying is a snowplow, and a plow needs a
+winter. Seasons turn `tile.weatherMod` from a flat 1.0 into a 12-month profile per climate.
+Snow accelerates wear and an unplowed road is impassable (hard Phase 4 hit per month).
+
+**Climates.** Six to start; each must have a *signature hazard* that changes purchases and
+decay, or it's cosmetic. Seventh (Northeast coastal) waits until these run.
+
+| Climate | Signature hazard | Forces |
+|---|---|---|
+| Midwest | freeze-thaw (decay multiplier when temp crosses 0 repeatedly), tornado | potholes, plows, sirens |
+| Mountain / ski | deep snow, short season | plow fleet, salt, closures, summer-only construction |
+| Tropical island | hurricanes, salt air | corrosion multiplier, storm surge, no winter |
+| Humid South | hurricanes, flash flooding, heat | drainage capital, heat load on services |
+| Arid Southwest | extreme heat, monsoon floods, drought | water as constrained service, flood control, low road wear |
+| Pacific NW | persistent rain, landslides | stormwater load, mud, low snow cost |
+
+**Service triangle (per service).**
+- **County — free, always available, pinned bad.** Service-quality input fixed at
+  `COUNTY_SERVICE_QUALITY` (~30/100); nothing raises it. Possible response-time penalty on
+  events. Free must hurt or everyone free-rides forever.
+- **Contractors — middle.** Small table of providers `{ costPerCapita, quality, reliability }`.
+- **Build your own — the department.** Budget + staff + required capital assets (station,
+  engine); quality from funding ratio × equipment condition. This is the department system
+  from the vision doc. Arrives after weather creates the first need.
+
+**Procurement — bids differ on more than price or it's a click.** Each capital purchase
+gets 2–3 bids differing on `{ price, deliveryTurns, condition, warrantyTurns }`:
+- **County auction** — cheap, used, fast; higher maintNeed, shorter life.
+- **Local dealer** — new, pricier, slower; warranty suppresses maintNeed for N turns.
+Credit rating affects the *financing* attached to a bid (term offer vs cash-only), not
+the sticker price. Cheap-now vs cheap-later is the decision.
+
+**Assets.** `{ type, condition, maintNeed, opex, lifespanTurns, warrantyTurns }`. Owned
+vehicles are the vehicles Street Mode drives — same object, both layers.
+
 ## 13. Build order
 
 0. **Debug panel groundwork** — `config` becomes defaults + a runtime override layer
@@ -354,9 +391,11 @@ old random grant event goes away once this exists.
    `budgetPolicy` function stands in for the player in the headless runner.
 2. **Debt + credit review** — bonds, county loans, capacity, debt service in Phase 2,
    annual rating, `debtServiceRatio` on the budget screen.
-3. **Asset catalog** — things worth borrowing for; each has capital cost *and* ongoing
-   maintNeed/opex. Vehicles here are the vehicles Street Mode will drive.
-4. **Grants** — petition with match and restriction.
+3. **Seasons + one climate (Midwest)** — weatherMod profile, snow as impassable-road
+   cost, county plowing as the free default. Creates the first thing worth buying.
+4. **Asset catalog + procurement** — snowplow first, with county-auction vs dealer bids.
+5. **Grants** — petition with match and restriction.
+6. **Remaining climates, contractors, departments** — per §12b.
 
 Then re-run §11 and see whether allocating scarce money across competing needs is
 interesting in a table. If yes, it earns an `index.html`.
