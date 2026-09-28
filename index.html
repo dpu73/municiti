@@ -28,10 +28,17 @@
   th { color:var(--dim); font-weight:500; position:sticky; top:0; background:var(--bg); }
   td.ev { text-align:left; color:var(--warn); }
   tr.inc td { color:var(--acc); }
+  tr.year td { border-bottom:1px solid var(--dim); }
   .final { margin:10px 0 0; color:var(--dim); }
   .final b { color:var(--fg); }
   .wrap { overflow:auto; max-height:calc(100vh - 140px); }
   small { color:var(--dim); display:block; margin-top:8px; line-height:1.5; }
+  .row { display:flex; gap:6px; } .row button { margin-top:10px; }
+  button:disabled { opacity:.35; cursor:default; }
+  .summary { background:#0c0c0c; border:1px solid var(--line); padding:8px; margin:6px 0 10px; line-height:1.6; }
+  .summary b { color:var(--fg); } .summary { color:var(--dim); }
+  .summary .warn { color:var(--warn); } .summary .bad { color:var(--bad); }
+  #budgetTitle.open { color:var(--warn); }
   @media (max-width: 900px) { main { grid-template-columns:1fr; } aside.right { max-height:none; border:0; border-top:1px solid var(--line);} }
 </style>
 </head>
@@ -39,19 +46,30 @@
 <header><h1>MUNICITY</h1><span>sim bench · one turn = one month · <a href="docs/one-turn-spec.md" style="color:var(--dim)">spec</a></span></header>
 <main>
   <aside>
-    <h2>Turn zero</h2>
+    <h2 id="budgetTitle">Turn zero</h2>
+    <div id="budgetSummary" class="summary" hidden></div>
     <label><span>Scenario</span><select id="scenario"></select></label>
     <label><span>PW operations /yr</span><input type="number" id="pwOps" step="100"></label>
     <label><span>PW capital /yr</span><input type="number" id="pwCap" step="100"></label>
     <label><span>Services ops /yr</span><input type="number" id="svcOps" step="100"></label>
     <label><span>Millage</span><input type="number" id="millage" step="0.5"></label>
-    <h2>Run</h2>
-    <label><span>Turns</span><input type="number" id="turns" value="120" step="12"></label>
+    <button id="adopt" hidden>Adopt budget &amp; continue</button>
+
+    <h2>Play</h2>
     <label><span>Seed</span><input type="number" id="seed" value="1"></label>
+    <button id="newTown">Found town</button>
+    <div class="row">
+      <button id="endTurn" disabled>End turn</button>
+      <button id="skipYear" class="ghost" disabled>Skip to budget</button>
+    </div>
+    <button id="incorporate" hidden>Incorporate (pop ≥ <span id="incPop"></span>)</button>
+    <small id="playHint">Found a town, then End Turn one month at a time. Every 12th month the year closes and you set next year's budget.</small>
+
+    <h2>Bench</h2>
+    <label><span>Turns</span><input type="number" id="turns" value="120" step="12"></label>
     <label><span>Show every</span><input type="number" id="every" value="6" min="1"></label>
     <label><span>Auto-incorporate</span><input type="checkbox" id="autoInc" checked></label>
-    <button id="run">Run</button>
-    <small>Pick a scenario or edit the budget directly. Nothing here is a game yet — it's the loop, with the hood open.</small>
+    <button id="run" class="ghost">Run 10 years hands-off</button>
   </aside>
 
   <section>
@@ -114,49 +132,123 @@
   sel.addEventListener('change', () => loadScenario(sel.value));
   loadScenario('balanced');
 
-  // ── run ───────────────────────────────────────────────────────────────────
-  function run() {
-    const cfg = liveConfig();
-    const rng = createRng(Number($('seed').value));
-    let st = createTurnZero({
-      budget: {
-        publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value },
-        services:    { operations: +$('svcOps').value, capital: 0 },
-      },
-      millage: +$('millage').value,
-    }, cfg);
-    const turns = +$('turns').value, every = Math.max(1, +$('every').value), auto = $('autoInc').checked;
-    const rows = [st];
-    for (let t = 0; t < turns; t++) {
-      st = resolveTurn(st, rng, cfg);
-      if (auto && canIncorporate(st, cfg)) st = incorporate(st);
-      rows.push(st);
-    }
-    render(rows, every);
-  }
+  // ── shared ────────────────────────────────────────────────────────────────
+  const readBudget = () => ({
+    budget: {
+      publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value },
+      services:    { operations: +$('svcOps').value, capital: 0 },
+    },
+    millage: +$('millage').value,
+  });
 
-  function render(rows, every) {
-    const head = ['turn','pop','desir','road','treasury','rev/mo','exp/mo','lots','occ','bld','deficit','inc','event'];
-    let html = '<tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  function rowHtml(st) {
+    const lt = st.lastTurn, occ = st.lots.filter(l => l.state === 'occupied').length,
+          bld = st.lots.filter(l => l.state === 'construction').length,
+          road = st.infrastructure[0]?.condition ?? 0;
+    const ev = st.pendingEvents?.length ? st.pendingEvents.map(e => e.type).join(', ') : (lt.event ? lt.event.type : '');
+    return `<tr class="${st.incorporated ? 'inc' : ''} ${st.turn % 12 === 0 && st.turn ? 'year' : ''}">
+      <td>${st.turn}</td><td>${st.population}</td><td>${st.desirability.toFixed(1)}</td><td>${road.toFixed(0)}</td>
+      <td>${fmt$(st.treasury)}</td><td>${fmt$(lt.revenue ?? 0)}</td><td>${fmt$(lt.expenses ?? 0)}</td>
+      <td>${st.lots.length}</td><td>${occ}</td><td>${bld}</td><td>${st.deficitStreak}</td>
+      <td>${st.incorporated ? '✓' : ''}</td><td class="ev">${ev}</td></tr>`;
+  }
+  const HEAD = '<tr>' + ['turn','pop','desir','road','treasury','rev/mo','exp/mo','lots','occ','bld','deficit','inc','event'].map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+  function renderRows(rows, every) {
+    // Events on skipped rows are carried forward so nothing disappears between shown rows.
+    let html = HEAD, carried = [];
     for (const st of rows) {
+      if (st.lastTurn.event) carried.push(st.lastTurn.event);
       if (st.turn % every && st.turn !== rows.length - 1) continue;
-      const lt = st.lastTurn, occ = st.lots.filter(l => l.state === 'occupied').length,
-            bld = st.lots.filter(l => l.state === 'construction').length,
-            road = st.infrastructure[0]?.condition ?? 0;
-      html += `<tr class="${st.incorporated ? 'inc' : ''}">
-        <td>${st.turn}</td><td>${st.population}</td><td>${st.desirability.toFixed(1)}</td><td>${road.toFixed(0)}</td>
-        <td>${fmt$(st.treasury)}</td><td>${fmt$(lt.revenue ?? 0)}</td><td>${fmt$(lt.expenses ?? 0)}</td>
-        <td>${st.lots.length}</td><td>${occ}</td><td>${bld}</td><td>${st.deficitStreak}</td>
-        <td>${st.incorporated ? '✓' : ''}</td><td class="ev">${lt.event ? lt.event.type : ''}</td></tr>`;
+      html += rowHtml({ ...st, pendingEvents: carried }); carried = [];
     }
     $('out').innerHTML = html;
     const last = rows.at(-1);
     $('final').innerHTML = `after <b>${last.turn}</b> turns: pop <b>${last.population}</b> · desirability <b>${last.desirability.toFixed(1)}</b> · treasury <b>${fmt$(last.treasury)}</b> · ${last.log.length} logged events`;
+    $('out').parentElement.scrollTop = 1e9;
   }
 
-  $('run').addEventListener('click', run);
+  // ── bench: hands-off run ──────────────────────────────────────────────────
+  $('run').addEventListener('click', () => {
+    const cfg = liveConfig(), rng = createRng(+$('seed').value);
+    let st = createTurnZero(readBudget(), cfg);
+    const rows = [st], auto = $('autoInc').checked;
+    for (let t = 0; t < +$('turns').value; t++) {
+      st = resolveTurn(st, rng, cfg);
+      if (auto && canIncorporate(st, cfg)) st = incorporate(st);
+      rows.push(st);
+    }
+    game = null; setPlayUI();
+    renderRows(rows, Math.max(1, +$('every').value));
+  });
+
+  // ── play: one month at a time ─────────────────────────────────────────────
+  let game = null;   // { cfg, rng, state, rows, budgetOpen }
+
+  function setPlayUI() {
+    const on = !!game, open = on && game.budgetOpen;
+    $('endTurn').disabled = !on || open;
+    $('skipYear').disabled = !on || open;
+    $('adopt').hidden = !open;
+    $('budgetTitle').textContent = on ? (open ? `Annual budget — FY ${Math.floor(game.state.turn / 12) + 1}` : `Budget (FY ${Math.floor(game.state.turn / 12) + 1}, adopted)`) : 'Turn zero';
+    $('budgetTitle').classList.toggle('open', open);
+    for (const id of ['pwOps','pwCap','svcOps','millage','scenario']) $(id).disabled = on && !open;
+    $('budgetSummary').hidden = !open;
+    const inc = on && canIncorporate(game.state, game.cfg);
+    $('incorporate').hidden = !inc; $('incPop').textContent = game?.cfg.INCORPORATION_POP ?? '';
+    $('newTown').textContent = on ? 'Abandon & refound' : 'Found town';
+  }
+
+  function openBudget() {
+    const st = game.state, opex = Object.values(st.budget).reduce((s, d) => s + (d.operations ?? 0), 0);
+    const reserveMonths = opex ? st.treasury / (opex / 12) : Infinity;
+    const yr = game.rows.slice(-12);
+    const rev = yr.reduce((s, r) => s + (r.lastTurn.revenue ?? 0), 0), exp = yr.reduce((s, r) => s + (r.lastTurn.expenses ?? 0), 0);
+    const road = st.infrastructure[0].condition;
+    const cls = v => v < 3 ? 'bad' : v < 6 ? 'warn' : '';
+    $('budgetSummary').innerHTML =
+      `Year closed. Pop <b>${st.population}</b> · desirability <b>${st.desirability.toFixed(0)}</b><br>` +
+      `Revenue <b>${fmt$(rev)}</b> · spent <b>${fmt$(exp)}</b> · net <b class="${rev - exp < 0 ? 'bad' : ''}">${fmt$(rev - exp)}</b><br>` +
+      `Treasury <b>${fmt$(st.treasury)}</b> · reserves <b class="${cls(reserveMonths)}">${isFinite(reserveMonths) ? reserveMonths.toFixed(1) + ' mo' : '∞'}</b><br>` +
+      `Road <b class="${road < 40 ? 'bad' : road < 70 ? 'warn' : ''}">${road.toFixed(0)}</b> · service quality <b>${(st.lastTurn.inputs?.serviceQuality ?? 0).toFixed(0)}</b>` +
+      (st.deficitStreak ? `<br><span class="bad">Deficit: ${st.deficitStreak} month(s)</span>` : '') +
+      `<br><span style="color:var(--warn)">Set next year's budget below, then adopt.</span>`;
+    game.budgetOpen = true; setPlayUI();
+  }
+
+  function step() {
+    game.state = resolveTurn(game.state, game.rng, game.cfg);
+    game.rows.push(game.state);
+    renderRows(game.rows, 1);
+    if (game.state.turn % 12 === 0) openBudget(); else setPlayUI();
+  }
+
+  $('newTown').addEventListener('click', () => {
+    const cfg = liveConfig();
+    game = { cfg, rng: createRng(+$('seed').value), budgetOpen: false };
+    game.state = createTurnZero(readBudget(), cfg);
+    game.rows = [game.state];
+    renderRows(game.rows, 1); setPlayUI();
+  });
+  $('endTurn').addEventListener('click', step);
+  $('skipYear').addEventListener('click', () => { do step(); while (game && game.state.turn % 12 !== 0); });
+  $('adopt').addEventListener('click', () => {
+    const b = readBudget();
+    game.state = structuredClone(game.state);
+    game.state.budget = b.budget; game.state.millage = b.millage;
+    game.state.log.push({ turn: game.state.turn, type: 'budget adopted' });
+    game.rows[game.rows.length - 1] = game.state;
+    game.budgetOpen = false; setPlayUI();
+  });
+  $('incorporate').addEventListener('click', () => {
+    game.state = incorporate(game.state);
+    game.rows[game.rows.length - 1] = game.state;
+    renderRows(game.rows, 1); setPlayUI();
+  });
+
   renderConfig();
-  run();
+  setPlayUI();
+  $('run').click();
 </script>
 </body>
 </html>
