@@ -302,30 +302,45 @@ paid for by **borrowing**, never by asking a board. Economic cost, not procedura
 level-payment amortization `payment = P·r/(1−(1+r)^−n)` (r monthly). Phase 2 sums payments
 into `debtService`. Paying principal down frees capacity.
 
-**Capacity.**
+**Capacity — one hard cap, one price, one warning.**
 ```
 incorporated:   debtCapacity = DEBT_LIMIT_RATIO × Σ assessedValue(occupied)   // ~8.6% of EAV, IL non-home-rule
-unincorporated: county loans only — 2–3 fixed products, flat caps, worse terms
-                e.g. 5yr @ 6% up to $50k;  15yr @ 8% up to $100k
+unincorporated: county loans only — 2 fixed products with flat caps
+                5yr up to COUNTY_LOAN_SHORT_CAP;  15yr up to COUNTY_LOAN_LONG_CAP
 ```
+- **City size → the hard cap.** Capacity is a share of assessed value, so it grows with the
+  tax base. That is the county's limit; there is no second one.
+- **Reserves → the price.** Thin reserves lower the rating, which raises the rate. They
+  never block a loan.
+- **Debt service → the warning.** `debtServiceRatio` feeds the rating and heads the budget
+  screen. Deliberately *not* a hard cap: letting the player over-leverage and feel Phase 4
+  turn on them is the game. County takeover at 10 deficit months is the backstop.
+
 Incorporation swaps county loans for your own bonds: better rates, capacity that grows
 with the tax base. This is the felt upside that pays for losing seed income.
 
-**Credit rating — annual review.** Once every 12 turns, grade from three inputs already in
-state: `reserveMonths`, deficit months in the past year, `outstandingPrincipal / debtCapacity`.
-Ladder: Aaa · Aa · A · Baa · Ba. `rate(newBond) = BASE_RATE + SPREAD[grade]`. Rate is locked
-until the next review, so cleaning up the books before review is a real move. Rating also
-gates grant eligibility.
+**Rate environment.** `countyBaseRate` is a slow bounded random walk (drift ± a fraction of
+a point per year within `[RATE_FLOOR, RATE_CEILING]`). Products don't change; the price of
+money does, so *when* to borrow is a decision.
+
+**Credit rating — annual review, A–F.** Once every 12 turns, grade from three inputs
+already in state: `reserveMonths`, deficit months in the past year,
+`outstandingPrincipal / debtCapacity`, plus `debtServiceRatio`. Ladder: **A · B · C · D · F**.
+`rate(newBond) = countyBaseRate + SPREAD[grade]`. Locked until the next review, so
+cleaning up the books before review is a real move. **F closes the bond market:** county
+loans only, at a penalty spread. Rating also gates grant eligibility.
 
 **Debt burden.** `debtServiceRatio = debtService / revenue`. First number on the annual
-budget screen; feeds the credit review; warning zone above ~0.15–0.20. **No separate
-"anger" stat.** Too much debt service forces either cuts (service quality ↓ → desirability
-↓) or higher millage (tax burden ↓ → desirability ↓). Phase 4 already is the angry citizens.
+budget screen; warning zone above ~0.15–0.20. **No separate "anger" stat.** Too much debt
+service forces either cuts (service quality ↓ → desirability ↓) or higher millage (tax
+burden ↓ → desirability ↓). Phase 4 already is the angry citizens.
 
-**Grants — petition, not lottery.** Replace the random grant event with an annual petition
-to the county. A grant is `{ amount, matchRatio, restrictedTo }`: the player commits the
-match and the money must be spent on the county's priority (roads, water, parks…), not
-theirs. Eligibility gated by rating. Unmatched unrestricted grants fail the teardown test.
+**Grants — offered at budget time, never free.** Each annual budget the county puts 1–3
+grants on the table from a small pool, weighting shifted year to year:
+`{ amount, matchRatio, restrictedTo }` with `restrictedTo` a class — roads, water, parks,
+vehicles. Player commits the match and spends on the county's priority, or passes.
+Eligibility gated by rating. Unmatched unrestricted grants fail the teardown test, and the
+old random grant event goes away once this exists.
 
 **Inflation.** Slow price escalator on everything, 2–3%/yr. Parked; it's a difficulty dial.
 
