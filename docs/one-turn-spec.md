@@ -289,13 +289,65 @@ doesn't exist yet. Build it before tuning any constants; the hoard is a symptom.
 
 ---
 
-## 12. Parking lot
+## 12. Fiscal system — designed, not built (2026-09-28)
 
-**Next up:** annual budget decision (re-set `budget` and `millage` every 12 turns).
+Resolved in design; formulas are first drafts. Build order is §13. Nothing here runs yet.
+
+**The three numbers.** `budget` is spending *authority* (annual appropriations — departments
+spend within it without asking). `treasury` is *reserves* — the money actually on hand,
+tracked as `reserveMonths = treasury / (annual opex / 12)`. Anything outside the budget is
+paid for by **borrowing**, never by asking a board. Economic cost, not procedural friction.
+
+**Debt.** `state.debt[]` holds bonds/loans: `{ principal, rate, termTurns, payment }` with
+level-payment amortization `payment = P·r/(1−(1+r)^−n)` (r monthly). Phase 2 sums payments
+into `debtService`. Paying principal down frees capacity.
+
+**Capacity.**
+```
+incorporated:   debtCapacity = DEBT_LIMIT_RATIO × Σ assessedValue(occupied)   // ~8.6% of EAV, IL non-home-rule
+unincorporated: county loans only — 2–3 fixed products, flat caps, worse terms
+                e.g. 5yr @ 6% up to $50k;  15yr @ 8% up to $100k
+```
+Incorporation swaps county loans for your own bonds: better rates, capacity that grows
+with the tax base. This is the felt upside that pays for losing seed income.
+
+**Credit rating — annual review.** Once every 12 turns, grade from three inputs already in
+state: `reserveMonths`, deficit months in the past year, `outstandingPrincipal / debtCapacity`.
+Ladder: Aaa · Aa · A · Baa · Ba. `rate(newBond) = BASE_RATE + SPREAD[grade]`. Rate is locked
+until the next review, so cleaning up the books before review is a real move. Rating also
+gates grant eligibility.
+
+**Debt burden.** `debtServiceRatio = debtService / revenue`. First number on the annual
+budget screen; feeds the credit review; warning zone above ~0.15–0.20. **No separate
+"anger" stat.** Too much debt service forces either cuts (service quality ↓ → desirability
+↓) or higher millage (tax burden ↓ → desirability ↓). Phase 4 already is the angry citizens.
+
+**Grants — petition, not lottery.** Replace the random grant event with an annual petition
+to the county. A grant is `{ amount, matchRatio, restrictedTo }`: the player commits the
+match and the money must be spent on the county's priority (roads, water, parks…), not
+theirs. Eligibility gated by rating. Unmatched unrestricted grants fail the teardown test.
+
+**Inflation.** Slow price escalator on everything, 2–3%/yr. Parked; it's a difficulty dial.
+
+## 13. Build order
+
+1. **Annual budget decision** — every 12 turns re-set `budget` and `millage`; a
+   `budgetPolicy` function stands in for the player in the headless runner.
+2. **Debt + credit review** — bonds, county loans, capacity, debt service in Phase 2,
+   annual rating, `debtServiceRatio` on the budget screen.
+3. **Asset catalog** — things worth borrowing for; each has capital cost *and* ongoing
+   maintNeed/opex. Vehicles here are the vehicles Street Mode will drive.
+4. **Grants** — petition with match and restriction.
+
+Then re-run §11 and see whether allocating scarce money across competing needs is
+interesting in a table. If yes, it earns an `index.html`.
+
+## 14. Parking lot
 
 Street Mode · individual agents (cohorts first) · department heads · AI neighbors · county
 grid & terrain · climate profiles · annexation/secession · bonds & debt service · county
-takeover effects · CRIP · board meetings · infrastructure replacement · full property lifecycle ·
+takeover effects · CRIP · board meetings (procedural layer over §12, later) · inflation ·
+infrastructure replacement · full property lifecycle ·
 demographic desirability weights · commercial/industrial zoning · services triangle
 (build/trade/buy) · unlock tracks · data centers & fulfillment centers as late-game deals ·
 multiplayer · 3D pipeline · audio.
