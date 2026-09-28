@@ -378,6 +378,12 @@ gets 2–3 bids differing on `{ price, deliveryTurns, condition, warrantyTurns }
 Credit rating affects the *financing* attached to a bid (term offer vs cash-only), not
 the sticker price. Cheap-now vs cheap-later is the decision.
 
+**Road condition → speed → time.** Condition sets a speed multiplier per segment
+(`speedMod = f(condition)`, potholes slow you down). Response and travel times are
+path sums over speed-weighted segments, so a neglected road makes the fire truck late —
+in the table as a service-quality penalty, in Street Mode as the drive itself. One number,
+both layers.
+
 **Assets.** `{ type, condition, maintNeed, opex, lifespanTurns, warrantyTurns }`. Owned
 vehicles are the vehicles Street Mode drives — same object, both layers.
 
