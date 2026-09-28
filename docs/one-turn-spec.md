@@ -346,6 +346,10 @@ old random grant event goes away once this exists.
 
 ## 13. Build order
 
+0. **Debug panel groundwork** — `config` becomes defaults + a runtime override layer
+   (editable, resettable); each phase stamps its spec section so a panel can show the
+   formula beside the numbers. When the sim earns an `index.html`, the first UI is the
+   turn table plus this panel. For a simulation the debugger *is* the product for a while.
 1. **Annual budget decision** — every 12 turns re-set `budget` and `millage`; a
    `budgetPolicy` function stands in for the player in the headless runner.
 2. **Debt + credit review** — bonds, county loans, capacity, debt service in Phase 2,
