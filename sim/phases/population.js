@@ -6,17 +6,28 @@ export function population(state, config) {
   const vacancy = capacity - state.population;
   const pressure = (state.desirability - 50) / 50;      // -1 .. +1
 
-  let net = Math.round(config.MIGRATION_K * state.population * pressure);
+  // Two pulls: word-of-mouth (proportional to who's already here) and the
+  // seed itself (independent of population — what founds the town).
+  const flow = config.MIGRATION_K * state.population * pressure
+             + config.SEED_PULL * pressure;
+
+  // Fractional carry: nothing is lost to rounding between turns.
+  state.migrationCarry += flow;
+  let net = Math.trunc(state.migrationCarry);
+  state.migrationCarry -= net;
 
   if (net > 0) {
-    net = Math.min(net, Math.max(vacancy, 0));
-  } else if (net === 0 && pressure > 0 && vacancy > 0) {
-    // Floor: at tiny populations 2% rounds to zero forever. Let the first settlers arrive.
-    net = Math.min(config.MIGRATION_FLOOR, vacancy);
+    const room = Math.max(vacancy, 0);
+    if (net > room) {
+      // Would-be arrivals who found no housing don't queue up forever.
+      state.migrationCarry = 0;
+      net = room;
+    }
   }
 
+  const before = state.population;
   state.population = Math.max(1, state.population + net);
-  state.lastTurn.netMigration = net;
+  state.lastTurn.netMigration = state.population - before;
   state.lastTurn.vacancy = vacancy;
   return state;
 }

@@ -11,6 +11,7 @@ import { config } from './config.js';
  * @param {object} decisions  The player's turn-zero choices.
  * @param {object} decisions.budget   Annual $ per department: { publicWorks: {operations, capital}, services: {...} }
  * @param {number} [decisions.millage]
+ * @param {object} [decisions.policy]   Standing rules the sim applies without asking: { autoZone }
  */
 export function createTurnZero(decisions) {
   const budget = decisions.budget;
@@ -37,6 +38,8 @@ export function createTurnZero(decisions) {
     deficitStreak: 0,
     population: 1,
     desirability: 50,
+    migrationCarry: 0,          // fractional people carried between turns (spec §6)
+    policy: { autoZone: true, ...(decisions.policy ?? {}) },
     millage: decisions.millage ?? config.DEFAULT_MILLAGE,
     budget,
     tile: {

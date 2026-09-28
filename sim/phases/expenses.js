@@ -1,17 +1,18 @@
 // Phase 2 — Expenses. Spec §3
+//
+// Operations are charged in full every month. Capital is NOT charged here —
+// it's an allowance that Phase 3 draws down for repairs, and only actual
+// repair spending hits the treasury.
 export function expenses(state, config) {
-  let opex = 0, capex = 0;
+  let opex = 0;
   for (const dept of Object.values(state.budget)) {
-    opex  += (dept.operations ?? 0) / 12;
-    capex += (dept.capital ?? 0) / 12;
+    opex += (dept.operations ?? 0) / 12;
   }
-  const total = opex + capex;
 
-  state.treasury -= total;
+  state.treasury -= opex;
   state.deficitStreak = state.treasury < 0 ? state.deficitStreak + 1 : 0;
 
   state.lastTurn.opex = opex;
-  state.lastTurn.capex = capex;
-  state.lastTurn.expenses = total;
+  state.lastTurn.expenses = opex;   // Phase 3 adds repair spend to this
   return state;
 }

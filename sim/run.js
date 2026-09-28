@@ -11,14 +11,16 @@ import { createRng } from './rng.js';
 import { resolveTurn, canIncorporate, incorporate } from './resolveTurn.js';
 
 export const SCENARIOS = {
-  // Balanced: roads fully funded ($400/mo need → $4,800/yr), services scaled for ~15 people.
-  balanced: { publicWorks: { operations: 4_800, capital: 0 }, services: { operations: 6_000, capital: 0 }, millage: 8 },
-  // Stingy: minimal everything. Should decline.
+  // Balanced: roads fully maintained ($400/mo) + modest repair capital, services for ~15 people.
+  balanced: { publicWorks: { operations: 4_800, capital: 2_400 }, services: { operations: 6_000, capital: 0 }, millage: 8 },
+  // Stingy: minimal everything, no capital. Roads die, people leave.
   stingy:   { publicWorks: { operations: 1_200, capital: 0 }, services: { operations: 1_200, capital: 0 }, millage: 8 },
-  // Lavish: overspend on services, roads full. Grows fast, bleeds cash.
-  lavish:   { publicWorks: { operations: 4_800, capital: 0 }, services: { operations: 18_000, capital: 0 }, millage: 8 },
+  // Lavish: overspend on services and capital. Grows fast, bleeds cash.
+  lavish:   { publicWorks: { operations: 4_800, capital: 6_000 }, services: { operations: 18_000, capital: 0 }, millage: 8 },
   // Taxman: balanced budgets paid for with high millage.
-  taxman:   { publicWorks: { operations: 4_800, capital: 0 }, services: { operations: 6_000, capital: 0 }, millage: 16 },
+  taxman:   { publicWorks: { operations: 4_800, capital: 2_400 }, services: { operations: 6_000, capital: 0 }, millage: 16 },
+  // Potholes: pays for services, never repairs anything. Isolates the infrastructure lever.
+  potholes: { publicWorks: { operations: 1_200, capital: 0 }, services: { operations: 6_000, capital: 0 }, millage: 8 },
 };
 
 export function runScenario({ scenario = 'balanced', turns = 120, seed = 1, autoIncorporate = true } = {}) {
@@ -45,7 +47,7 @@ const pad = (v, w) => String(v).padStart(w);
 export function printTable(history, every = 6) {
   console.log(
     pad('turn', 4), pad('pop', 4), pad('des', 5), pad('road', 5), pad('treasury', 11),
-    pad('rev/mo', 8), pad('exp/mo', 8), pad('occ', 3), pad('bld', 3), pad('def', 3), ' inc  event',
+    pad('rev/mo', 8), pad('exp/mo', 8), pad('lots', 4), pad('occ', 3), pad('bld', 3), pad('def', 3), ' inc  event',
   );
   for (const st of history) {
     if (st.turn % every !== 0 && st.turn !== history.length - 1) continue;
@@ -56,7 +58,7 @@ export function printTable(history, every = 6) {
     console.log(
       pad(st.turn, 4), pad(st.population, 4), pad(st.desirability.toFixed(1), 5), pad(road.toFixed(0), 5),
       pad(fmt$(st.treasury), 11), pad(fmt$(lt.revenue ?? 0), 8), pad(fmt$(lt.expenses ?? 0), 8),
-      pad(occ, 3), pad(bld, 3), pad(st.deficitStreak, 3),
+      pad(st.lots.length, 4), pad(occ, 3), pad(bld, 3), pad(st.deficitStreak, 3),
       st.incorporated ? '  ✓  ' : '     ', lt.event ? lt.event.type : '',
     );
   }

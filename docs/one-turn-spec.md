@@ -31,6 +31,8 @@ Minimum state for phases 1–7 to be computable:
 | `millage` | `DEFAULT_MILLAGE` | property tax rate, mills |
 | `budget` | annual $ per department | the player's first real decision |
 | `desirability` | 50 | equilibrium |
+| `migrationCarry` | 0 | fractional people carried between turns, see §6 |
+| `policy.autoZone` | true | standing rule: zone more lots when out of land and demand exists, see §7 |
 
 **Player decisions available at turn zero:** set `budget`, set `millage`. That's it.
 Placing the road and zoning the lots is fixed in v0 (the founding "presentation" layer is
@@ -76,12 +78,13 @@ treasury     += revenue
 
 ```
 opex          = Σ over departments of (budget[dept].operations / 12)
-capex         = Σ over departments of (budget[dept].capital / 12)
-expenses      = opex + capex
-treasury     -= expenses
+treasury     -= opex
 deficitStreak = treasury < 0 ? deficitStreak + 1 : 0
 ```
 
+- Operations are charged in full every month. **Capital is not charged here.** It is a
+  monthly allowance that Phase 3 draws down for repairs; only actual spending hits the
+  treasury and unspent capital stays put. That's how capital budgets behave in practice.
 - v0 departments: `publicWorks`, `services` (a single stand-in for police/fire/etc.).
 - Debt service and service contracts: parked (0).
 - `deficitStreak` is tracked; the county takeover it triggers at 10 is parked. The counter
@@ -101,8 +104,21 @@ condition      = clamp(condition, 0, 100)
 
 - `occupancyFraction = population / totalHousingCapacity` (0 when capacity is 0).
 - Fully funded maintenance → normal decay. Zero funding → double decay. Linear between.
-- Capital budget is not yet used for repair/replacement. Parked; it's in the state so the
-  expense side already feels it.
+
+Then **repair**, worst object first:
+
+```
+allowance = budget.publicWorks.capital / 12
+for obj in infrastructure sorted by condition ascending:
+    points    = min(100 − condition, allowance / REPAIR_COST_PER_POINT)
+    condition += points
+    allowance -= points × REPAIR_COST_PER_POINT
+treasury -= (capital actually spent)
+```
+
+- Maintenance (operations) slows decay; capital reverses it. Both are needed and they
+  compete for the same money — that's the Public Works decision in miniature.
+- Replacement / rebuild of a dead object: parked. Repair is continuous for now.
 
 ## 5. Phase 4 — Desirability
 
@@ -128,35 +144,50 @@ one row — the structure already supports it.
 ## 6. Phase 5 — Population
 
 ```
-capacity      = Σ capacity over OCCUPIED lots
-vacancy       = capacity − population
-pressure      = (desirability − 50) / 50            // −1 … +1
-netMigration  = round(MIGRATION_K × population × pressure)
-if netMigration > 0: netMigration = min(netMigration, max(vacancy, 0))
-population    = max(1, population + netMigration)
+capacity        = Σ capacity over OCCUPIED lots
+vacancy         = capacity − population
+pressure        = (desirability − 50) / 50                    // −1 … +1
+flow            = MIGRATION_K × population × pressure          // word of mouth
+                + SEED_PULL × pressure                          // the seed itself
+migrationCarry += flow
+netMigration    = trunc(migrationCarry);  migrationCarry −= netMigration
+if netMigration > vacancy: netMigration = max(vacancy, 0); migrationCarry = 0
+population      = max(1, population + netMigration)
 ```
 
-- Desirability 50 is equilibrium. `MIGRATION_K = 0.02` → max ±2% per month. **This is a
-  tuning constant, not a design decision.** Adjust it after watching 120-turn runs.
-- Positive migration is capped by vacant housing. Negative migration is not capped (people
-  can always leave).
-- Small populations: at pop 1, `0.02 × 1 × pressure` rounds to 0 forever. v0 adds a
-  `MIGRATION_FLOOR`: if desirability > 50 and vacancy > 0 and `netMigration == 0`, admit
-  one person. Otherwise the first settler never arrives. This floor is the first thing to
-  revisit when the founding presentation layer comes back.
+- Two pulls. The proportional term is people telling people. The `SEED_PULL` term is the
+  tile's natural draw — pop-independent, so a town of 1 can still be found. At full
+  pressure with `SEED_PULL = 1.5` the first settler arrives in the first month; at pop 1
+  with only the proportional term it would take 80 months.
+- **Fractional carry.** Rounding was the v0 bug: at pop 33, −0.19/month rounded to zero
+  and nobody ever left. The carry accumulates across turns so small flows still move
+  whole people eventually.
+- Inflow is capped by vacant housing and the carry resets when it hits the cap (would-be
+  arrivals don't queue forever). Outflow is uncapped.
+- Desirability 50 is equilibrium. `MIGRATION_K` and `SEED_PULL` are **tuning constants,
+  not design decisions.**
 
 ## 7. Phase 6 — Development
 
 ```
-occupancyFraction = population / capacity   (1.0 if capacity == 0)
-if desirability > 50 and occupancyFraction >= ABSORPTION_TRIGGER:
-    convert up to ABSORPTION_RATE vacant lots → construction (turnsRemaining = BUILD_TURNS)
 for every lot under construction:
     turnsRemaining −= 1
     if turnsRemaining == 0: lot → occupied (joins tax base next Phase 1)
+
+occupancyFraction = population / capacity   (1.0 if capacity == 0)
+demand = desirability > 50 and occupancyFraction >= ABSORPTION_TRIGGER
+
+if demand and policy.autoZone and no vacant lots and treasury >= LOT_BATCH × LOT_ZONING_COST:
+    zone LOT_BATCH new vacant residential lots; treasury −= cost
+
+if demand:
+    convert up to ABSORPTION_RATE vacant lots → construction (turnsRemaining = BUILD_TURNS)
 ```
 
 - Absorption over time; nothing appears instantly.
+- **Zoning is the player's lever**, expressed for now as a standing policy so the headless
+  sim can exercise it. When board meetings arrive it becomes a monthly decision with the
+  same mechanics. Land costs money; that's what keeps growth from being free.
 - The full property lifecycle (occupancy → vacancy → disrepair → condemnation →
   acquisition) is parked. Only vacant → construction → occupied exists in v0.
 
@@ -206,11 +237,14 @@ Every number above lives in one file. First-guess values:
 | `BASE_DECAY` | 0.5 /mo | a fully funded road lasts ~200 months ≈ 17 yrs |
 | `USAGE_WEIGHT` | 0.5 | full occupancy → 1.5× wear |
 | `SERVICE_NEED_PER_CAPITA` | 400 /yr | |
-| `MIGRATION_K` | 0.02 | ±2%/mo max |
-| `MIGRATION_FLOOR` | 1 | see §6 |
+| `REPAIR_COST_PER_POINT` | 150 | full rebuild of one segment ≈ $15,000 |
+| `MIGRATION_K` | 0.02 | word of mouth, ±2%/mo of existing pop |
+| `SEED_PULL` | 1.5 | people/mo the seed attracts at full pressure |
 | `ABSORPTION_TRIGGER` | 0.8 | build when 80% full |
 | `ABSORPTION_RATE` | 2 lots/turn | |
 | `BUILD_TURNS` | 6 | |
+| `LOT_BATCH` | 6 | lots zoned per action |
+| `LOT_ZONING_COST` | 2,000 | per lot |
 | `INCORPORATION_POP` | 25 | |
 | `STORM_DAMAGE` | 20 | |
 | `GRANT_AMOUNT` | 5,000 | |
@@ -231,13 +265,37 @@ The loop is proven when a 120-turn (10-year) run with default constants shows:
 If (3) fails, the constants are wrong or the desirability formula is too flat. Fix that
 before adding anything.
 
+### Run log
+
+**2026-09-28, v0.1** — 120 turns, seed 1, five turn-zero budgets:
+
+| scenario | pop | desirability | treasury |
+|---|---|---|---|
+| balanced | 47 | 46 | $222k |
+| stingy | 4 | 49 | $375k |
+| lavish | 112 | 56 | $189k |
+| taxman | 29 | 45 | $355k |
+| potholes | 19 | 51 | $327k |
+
+(1), (2), (3) pass. (4) is a near-wash: at 12 houses property tax ($1,440/mo) almost
+exactly replaces seed income ($1,500/mo). Interesting knife-edge; leave it.
+
+**Finding:** every scenario stalls and hoards. `balanced` stops growing at ~48 people
+sitting on $222k, because service quality is `services / (pop × 400)` and the budget was
+set once at turn zero. Growth outruns a fixed budget, desirability sinks to 50, demand
+dies. **The missing piece is the annual budget decision** — the player re-allocating a
+growing treasury against growing needs. That is the core loop from the teardown, and it
+doesn't exist yet. Build it before tuning any constants; the hoard is a symptom.
+
 ---
 
 ## 12. Parking lot
 
+**Next up:** annual budget decision (re-set `budget` and `millage` every 12 turns).
+
 Street Mode · individual agents (cohorts first) · department heads · AI neighbors · county
 grid & terrain · climate profiles · annexation/secession · bonds & debt service · county
-takeover effects · CRIP · board meetings · annual fiscal lock · full property lifecycle ·
+takeover effects · CRIP · board meetings · infrastructure replacement · full property lifecycle ·
 demographic desirability weights · commercial/industrial zoning · services triangle
 (build/trade/buy) · unlock tracks · data centers & fulfillment centers as late-game deals ·
 multiplayer · 3D pipeline · audio.
