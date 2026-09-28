@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MuniCity — Sim Bench</title>
+<style>
+  :root { --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --fg:#ddd; --dim:#777; --acc:#6fbf73; --warn:#e0a458; --bad:#d9534f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
+  header h1 { margin:0; font-size:15px; font-weight:600; letter-spacing:.04em; }
+  header span { color:var(--dim); }
+  main { display:grid; grid-template-columns: 260px 1fr 300px; min-height:calc(100vh - 45px); }
+  aside, section { padding:14px; }
+  aside { background:var(--panel); border-right:1px solid var(--line); }
+  aside.right { border-right:0; border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 45px); }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); margin:14px 0 6px; }
+  h2:first-child { margin-top:0; }
+  label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:4px 0; }
+  label span { color:var(--dim); }
+  input[type=number], select { width:110px; background:#0c0c0c; color:var(--fg); border:1px solid var(--line); padding:4px 6px; font:inherit; text-align:right; }
+  input.dirty { border-color:var(--warn); }
+  button { background:var(--acc); color:#0c0c0c; border:0; padding:8px 12px; font:inherit; font-weight:700; cursor:pointer; width:100%; margin-top:10px; }
+  button.ghost { background:transparent; color:var(--dim); border:1px solid var(--line); font-weight:400; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { text-align:right; padding:3px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--dim); font-weight:500; position:sticky; top:0; background:var(--bg); }
+  td.ev { text-align:left; color:var(--warn); }
+  tr.inc td { color:var(--acc); }
+  .final { margin:10px 0 0; color:var(--dim); }
+  .final b { color:var(--fg); }
+  .wrap { overflow:auto; max-height:calc(100vh - 140px); }
+  small { color:var(--dim); display:block; margin-top:8px; line-height:1.5; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } aside.right { max-height:none; border:0; border-top:1px solid var(--line);} }
+</style>
+</head>
+<body>
+<header><h1>MUNICITY</h1><span>sim bench · one turn = one month · <a href="docs/one-turn-spec.md" style="color:var(--dim)">spec</a></span></header>
+<main>
+  <aside>
+    <h2>Turn zero</h2>
+    <label><span>Scenario</span><select id="scenario"></select></label>
+    <label><span>PW operations /yr</span><input type="number" id="pwOps" step="100"></label>
+    <label><span>PW capital /yr</span><input type="number" id="pwCap" step="100"></label>
+    <label><span>Services ops /yr</span><input type="number" id="svcOps" step="100"></label>
+    <label><span>Millage</span><input type="number" id="millage" step="0.5"></label>
+    <h2>Run</h2>
+    <label><span>Turns</span><input type="number" id="turns" value="120" step="12"></label>
+    <label><span>Seed</span><input type="number" id="seed" value="1"></label>
+    <label><span>Show every</span><input type="number" id="every" value="6" min="1"></label>
+    <label><span>Auto-incorporate</span><input type="checkbox" id="autoInc" checked></label>
+    <button id="run">Run</button>
+    <small>Pick a scenario or edit the budget directly. Nothing here is a game yet — it's the loop, with the hood open.</small>
+  </aside>
+
+  <section>
+    <div class="wrap"><table id="out"></table></div>
+    <p class="final" id="final"></p>
+  </section>
+
+  <aside class="right">
+    <h2>Config <span id="dirtyCount"></span></h2>
+    <div id="cfg"></div>
+    <button class="ghost" id="reset">Reset to defaults</button>
+    <small>Every number the sim uses. Edit, then Run. Orange = changed from <code>sim/config.js</code>.</small>
+  </aside>
+</main>
+
+<script type="module">
+  import { config as defaults } from './sim/config.js';
+  import { createTurnZero } from './sim/state.js';
+  import { createRng } from './sim/rng.js';
+  import { resolveTurn, canIncorporate, incorporate } from './sim/resolveTurn.js';
+  import { SCENARIOS } from './sim/run.js';
+
+  const $ = id => document.getElementById(id);
+  const fmt$ = n => (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+
+  // ── config override layer ─────────────────────────────────────────────────
+  const overrides = {};
+  const liveConfig = () => ({ ...structuredClone(defaults), ...overrides });
+
+  function renderConfig() {
+    const el = $('cfg'); el.innerHTML = '';
+    let dirty = 0;
+    for (const [k, v] of Object.entries(defaults)) {
+      if (typeof v !== 'number') continue;          // nested objects: edit in config.js for now
+      const cur = overrides[k] ?? v;
+      const row = document.createElement('label');
+      row.innerHTML = `<span>${k}</span>`;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.value = cur; inp.step = Math.abs(v) >= 100 ? 100 : (Number.isInteger(v) ? 1 : 0.01);
+      if (k in overrides) { inp.classList.add('dirty'); dirty++; }
+      inp.addEventListener('change', () => {
+        const n = Number(inp.value);
+        if (n === v) delete overrides[k]; else overrides[k] = n;
+        renderConfig();
+      });
+      row.appendChild(inp); el.appendChild(row);
+    }
+    $('dirtyCount').textContent = dirty ? `· ${dirty} changed` : '';
+  }
+  $('reset').addEventListener('click', () => { for (const k in overrides) delete overrides[k]; renderConfig(); });
+
+  // ── scenarios ─────────────────────────────────────────────────────────────
+  const sel = $('scenario');
+  for (const name of Object.keys(SCENARIOS)) sel.append(new Option(name, name));
+  function loadScenario(name) {
+    const s = SCENARIOS[name];
+    $('pwOps').value = s.publicWorks.operations; $('pwCap').value = s.publicWorks.capital;
+    $('svcOps').value = s.services.operations;   $('millage').value = s.millage;
+  }
+  sel.addEventListener('change', () => loadScenario(sel.value));
+  loadScenario('balanced');
+
+  // ── run ───────────────────────────────────────────────────────────────────
+  function run() {
+    const cfg = liveConfig();
+    const rng = createRng(Number($('seed').value));
+    let st = createTurnZero({
+      budget: {
+        publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value },
+        services:    { operations: +$('svcOps').value, capital: 0 },
+      },
+      millage: +$('millage').value,
+    }, cfg);
+    const turns = +$('turns').value, every = Math.max(1, +$('every').value), auto = $('autoInc').checked;
+    const rows = [st];
+    for (let t = 0; t < turns; t++) {
+      st = resolveTurn(st, rng, cfg);
+      if (auto && canIncorporate(st, cfg)) st = incorporate(st);
+      rows.push(st);
+    }
+    render(rows, every);
+  }
+
+  function render(rows, every) {
+    const head = ['turn','pop','desir','road','treasury','rev/mo','exp/mo','lots','occ','bld','deficit','inc','event'];
+    let html = '<tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    for (const st of rows) {
+      if (st.turn % every && st.turn !== rows.length - 1) continue;
+      const lt = st.lastTurn, occ = st.lots.filter(l => l.state === 'occupied').length,
+            bld = st.lots.filter(l => l.state === 'construction').length,
+            road = st.infrastructure[0]?.condition ?? 0;
+      html += `<tr class="${st.incorporated ? 'inc' : ''}">
+        <td>${st.turn}</td><td>${st.population}</td><td>${st.desirability.toFixed(1)}</td><td>${road.toFixed(0)}</td>
+        <td>${fmt$(st.treasury)}</td><td>${fmt$(lt.revenue ?? 0)}</td><td>${fmt$(lt.expenses ?? 0)}</td>
+        <td>${st.lots.length}</td><td>${occ}</td><td>${bld}</td><td>${st.deficitStreak}</td>
+        <td>${st.incorporated ? '✓' : ''}</td><td class="ev">${lt.event ? lt.event.type : ''}</td></tr>`;
+    }
+    $('out').innerHTML = html;
+    const last = rows.at(-1);
+    $('final').innerHTML = `after <b>${last.turn}</b> turns: pop <b>${last.population}</b> · desirability <b>${last.desirability.toFixed(1)}</b> · treasury <b>${fmt$(last.treasury)}</b> · ${last.log.length} logged events`;
+  }
+
+  $('run').addEventListener('click', run);
+  renderConfig();
+  run();
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 // State is plain JSON-serializable data. No classes, no methods — so it can be
 // saved, diffed, sent over a wire for multiplayer, and inspected in a table.
 
-import { config } from './config.js';
+import { config as defaultConfig } from './config.js';
 
 /**
  * Build the founding state vector.
@@ -13,7 +13,7 @@ import { config } from './config.js';
  * @param {number} [decisions.millage]
  * @param {object} [decisions.policy]   Standing rules the sim applies without asking: { autoZone }
  */
-export function createTurnZero(decisions) {
+export function createTurnZero(decisions, config = defaultConfig) {
   const budget = decisions.budget;
   if (!budget?.publicWorks || !budget?.services) {
     throw new Error('createTurnZero: budget must define publicWorks and services');
