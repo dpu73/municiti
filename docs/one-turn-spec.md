@@ -280,7 +280,22 @@ before adding anything.
 (1), (2), (3) pass. (4) is a near-wash: at 12 houses property tax ($1,440/mo) almost
 exactly replaces seed income ($1,500/mo). Interesting knife-edge; leave it.
 
-**Finding:** every scenario stalls and hoards. `balanced` stops growing at ~48 people
+**2026-09-28 late, v0.2** — seasons (Midwest profile, founding in April), snow with county
+plowing as the default, road segments added with each zoning batch, a snowplow with two
+bids, assets with upkeep and warranty. 120 turns, seed 1, balanced:
+
+| plow | pop | desirability | treasury |
+|---|---|---|---|
+| none (county plows) | 28 | 44 | $98k |
+| auction at turn 0 | 27 | 43 | $22k |
+| dealer at turn 0 | — | — | can't afford |
+
+**Finding:** with 1–2 roads the plow is a $75k mistake over ten years — correct. The
+crossover needs more road segments → more zoning → demand → desirability. Growth is slower
+than v0.1 (28 vs 47) because winter closes roads and zoning now costs $27k a batch. Money
+is scarcer; good. The dealer plow being unreachable is the debt system's cue.
+
+**v0.1 finding:** every scenario stalls and hoards. `balanced` stops growing at ~48 people
 sitting on $222k, because service quality is `services / (pop × 400)` and the budget was
 set once at turn zero. Growth outruns a fixed budget, desirability sinks to 50, demand
 dies. **The missing piece is the annual budget decision** — the player re-allocating a
@@ -397,11 +412,11 @@ vehicles are the vehicles Street Mode drives — same object, both layers.
    `budgetPolicy` function stands in for the player in the headless runner.
 2. **Debt + credit review** — bonds, county loans, capacity, debt service in Phase 2,
    annual rating, `debtServiceRatio` on the budget screen.
-3. **Seasons + one climate (Midwest)** — weatherMod profile, snow as impassable-road
-   cost, county plowing as the free default. Creates the first thing worth buying.
-4. **Asset catalog + procurement** — snowplow first, with county-auction vs dealer bids.
-5. **Grants** — petition with match and restriction.
-6. **Remaining climates, contractors, departments** — per §12b.
+3. ~~Seasons + Midwest climate~~ — done v0.2 (`sim/climate.js`).
+4. ~~Snowplow with county-auction vs dealer bids~~ — done v0.2 (`sim/actions.js`); cash only.
+5. **Debt** (item 2) is now blocking: the dealer plow and any real capital purchase need it.
+6. **Grants** — petition with match and restriction.
+7. **Remaining climates, contractors, departments** — per §12b.
 
 Then re-run §11 and see whether allocating scarce money across competing needs is
 interesting in a table. If yes, it earns an `index.html`.
