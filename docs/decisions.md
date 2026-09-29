@@ -96,3 +96,15 @@ says *why*, so settled questions don't get re-litigated. Newest at the bottom.
   will keep accumulating and a sidebar doesn't scale. Config stays behind a gear.
 - **Mid-year budget changes allowed for now.** The annual lock arrives with board meetings
   and should be an incorporation effect, not a rule imposed at turn zero.
+- **Vehicles need a yard first.** The Public Works yard is the first base asset: it makes
+  the tier rule real (the county can't touch it), gates vehicle ownership by slots, and its
+  garage variant carries a mechanic who slows aging. It is the seed of city hall.
+- **Four numbers on every asset: efficiency, condition, life, cost.** Offer tiles, not
+  prose. Efficiency scales the job (plow coverage); condition discounts it and falls with
+  age and use; past expected life upkeep doubles. Financing shown per month at the best
+  available rate so the trade-off is visible before borrowing.
+- **The bench has a stand-in player.** It re-adopts the founding budget every year unless
+  the county holds it. Without that, post-takeover runs sat at austerity forever and the
+  bench measured nothing.
+- **Labels: End Month / End Fiscal Year; calendar in the header** with the fiscal year as
+  twelve dots, snow months tinted. Light/dark toggle, remembered per browser.

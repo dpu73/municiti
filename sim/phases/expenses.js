@@ -13,7 +13,8 @@ export function expenses(state, config) {
   for (const a of state.assets) {
     if (state.turn < a.arrivesTurn || a.idled) continue;
     if (state.turn <= a.warrantyUntil) continue;
-    assetUpkeep += a.maintNeed;
+    const age = state.turn - a.arrivesTurn;
+    assetUpkeep += a.maintNeed * (age > a.lifespanTurns ? config.PAST_LIFE_UPKEEP_MULT : 1);
   }
 
   // Debt service: level payments; principal shrinks; paid-off notes drop away.

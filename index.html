@@ -7,7 +7,11 @@
 <style>
   :root {
     --bg:#0f1115; --panel:#161a21; --card:#1c212a; --line:#2a303b; --fg:#e6e8ec; --dim:#8a919e;
-    --acc:#6fbf73; --warn:#e0a458; --bad:#e06060; --snow:#8fc7ff;
+    --acc:#6fbf73; --warn:#e0a458; --bad:#e06060; --snow:#8fc7ff; --input:#0c0e12; --overlay:rgba(0,0,0,.6); --btnfg:#0c0e12;
+  }
+  :root[data-theme="light"] {
+    --bg:#f4f5f7; --panel:#ffffff; --card:#f7f8fa; --line:#d9dde3; --fg:#1b1f26; --dim:#5f6774;
+    --acc:#2e8b3d; --warn:#b26f12; --bad:#c23b3b; --snow:#1f6fb2; --input:#ffffff; --overlay:rgba(20,24,30,.45); --btnfg:#ffffff;
   }
   * { box-sizing:border-box; }
   html, body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -22,7 +26,31 @@
   header .tools { display:flex; gap:6px; flex-wrap:wrap; }
   header .tools button.ghost { color:var(--fg); }
   header .tools button.ghost.attn { border-color:var(--warn); color:var(--warn); }
-  header .primary { display:flex; gap:6px; }
+  header .primary { display:flex; gap:6px; align-items:center; }
+  .cal { display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:8px; padding:4px 10px; background:var(--card); cursor:pointer; }
+  .cal .mo { font-size:20px; font-weight:700; letter-spacing:.04em; }
+  .cal .yr { font-size:12px; color:var(--dim); line-height:1.2; }
+  .cal .dots { display:grid; grid-template-columns:repeat(12, 7px); gap:2px; }
+  .cal .dots i { width:7px; height:7px; border-radius:2px; background:var(--line); display:block; }
+  .cal .dots i.done { background:var(--dim); } .cal .dots i.now { background:var(--acc); } .cal .dots i.snow { background:var(--snow); opacity:.7; } .cal .dots i.snow.done { opacity:1; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:12px; }
+  .tabs button { width:auto; margin:0; background:transparent; color:var(--dim); border:0; border-bottom:2px solid transparent; border-radius:0; padding:8px 12px; font-weight:600; }
+  .tabs button.on { color:var(--fg); border-bottom-color:var(--acc); }
+  .items { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .items button { width:auto; margin:0; padding:8px 12px; }
+  .offers { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
+  .offer { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--card); display:flex; flex-direction:column; gap:6px; }
+  .offer .n { font-weight:700; font-size:15px; }
+  .offer .price { font-size:22px; font-weight:700; }
+  .offer .meter { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--dim); }
+  .offer .meter span:first-child { width:78px; }
+  .offer .bar { flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .offer .bar i { display:block; height:100%; background:var(--acc); }
+  .offer .bar i.warn { background:var(--warn); } .offer .bar i.bad { background:var(--bad); }
+  .offer .meter b { width:34px; text-align:right; color:var(--fg); }
+  .offer .line { display:flex; justify-content:space-between; font-size:13px; color:var(--dim); } .offer .line b { color:var(--fg); }
+  .offer button { margin-top:auto; padding:8px; font-size:14px; }
+  .offer .why { font-size:12px; color:var(--warn); }
   header .primary button { padding:8px 16px; }
 
   .stats { display:grid; grid-template-columns:repeat(6, 1fr); gap:1px; background:var(--line); border-bottom:1px solid var(--line); }
@@ -38,7 +66,7 @@
   aside.right { display:none; padding:16px; background:var(--panel); border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 140px); }
   main.showcfg aside.right { display:block; }
   section { padding:16px 20px; overflow:auto; max-width:1100px; }
-  .banner { background:#3a2a12; border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:10px 14px; margin-bottom:12px; }
+  .banner { background:color-mix(in srgb, var(--warn) 18%, var(--panel)); border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:10px 14px; margin-bottom:12px; }
   .banner b { color:var(--fg); }
 
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--dim); margin:18px 0 8px; }
@@ -52,10 +80,10 @@
 
   label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; }
   label span { color:var(--dim); }
-  input[type=number], select { width:120px; background:#0c0e12; color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:6px 8px; font:inherit; font-size:15px; text-align:right; }
+  input[type=number], select { width:120px; background:var(--input); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:6px 8px; font:inherit; font-size:15px; text-align:right; }
   input.dirty { border-color:var(--warn); }
   input:disabled, select:disabled { opacity:.5; }
-  button { background:var(--acc); color:#0c0e12; border:0; border-radius:6px; padding:10px 14px; font:inherit; font-weight:700; cursor:pointer; width:100%; margin-top:8px; }
+  button { background:var(--acc); color:var(--btnfg); border:0; border-radius:6px; padding:10px 14px; font:inherit; font-weight:700; cursor:pointer; width:100%; margin-top:8px; }
   button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); font-weight:500; }
   button.warn { background:var(--warn); }
   button:disabled { opacity:.35; cursor:default; }
@@ -76,7 +104,7 @@
   tr.inc td.l:first-child { color:var(--acc); }
   .wrap { overflow:auto; max-height:52vh; border:1px solid var(--line); border-radius:8px; }
 
-  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-start; justify-content:center; padding-top:6vh; z-index:10; }
+  .overlay { position:fixed; inset:0; background:var(--overlay); display:none; align-items:flex-start; justify-content:center; padding-top:6vh; z-index:10; }
   .overlay.open { display:flex; }
   .modal { background:var(--panel); border:1px solid var(--line); border-radius:10px; width:min(720px, 94vw); max-height:90vh; overflow:auto; padding:20px 24px; }
   .modal h3 { margin:0 0 4px; font-size:20px; }
@@ -97,7 +125,7 @@
 <body>
 <header>
   <h1>MUNICITY</h1>
-  <span class="date" id="date">Founding day</span>
+  <span class="date" id="date" hidden>Founding day</span>
   <div class="tools">
     <button class="ghost" data-tool="budget" id="tBudget">Budget</button>
     <button class="ghost" data-tool="finance">Loans</button>
@@ -107,9 +135,11 @@
   </div>
   <span class="spacer"></span>
   <div class="primary">
-    <button id="endTurn">End month</button>
-    <button id="skipYear" class="ghost">Skip to year end</button>
+    <div class="cal" id="cal" title="Calendar"><div><div class="mo" id="calMo">APR</div><div class="yr" id="calYr">Year 1 · FY 1</div></div><div class="dots" id="calDots"></div></div>
+    <button id="endTurn">End Month</button>
+    <button id="skipYear" class="ghost">End Fiscal Year</button>
   </div>
+  <button class="ghost" id="themeToggle" title="Light / dark">☀</button>
   <button class="ghost" id="cfgToggle" title="Every constant, editable">⚙</button>
 </header>
 
@@ -152,7 +182,9 @@
   import { createTurnZero } from './sim/state.js';
   import { createRng } from './sim/rng.js';
   import { resolveTurn, canIncorporate, incorporate } from './sim/resolveTurn.js';
-  import { PLOW_BIDS, buyAsset, canAfford, adoptBudget } from './sim/actions.js';
+  import { buyAsset, adoptBudget } from './sim/actions.js';
+  import { CATALOG, findOffer, purchaseBlocker, vehicleSlots, hasMechanic } from './sim/catalog.js';
+  import { CLIMATES, yearOf } from './sim/climate.js';
   import { annualReview, loanProducts, borrow, debtCapacity, outstandingPrincipal, reserveMonths, annualDebtService, monthlyPayment } from './sim/finance.js';
   import { MONTHS, monthIndex, monthLabel } from './sim/climate.js';
   import { SCENARIOS } from './sim/run.js';
@@ -182,6 +214,29 @@
   }
   $('reset').addEventListener('click', () => { for (const k in overrides) delete overrides[k]; renderConfig(); });
   $('cfgToggle').addEventListener('click', () => $('main').classList.toggle('showcfg'));
+
+  // ── theme ─────────────────────────────────────────────────────────────────
+  const applyTheme = t => { document.documentElement.dataset.theme = t; $('themeToggle').textContent = t === 'light' ? '☾' : '☀'; try { localStorage.setItem('municity.theme', t); } catch {} };
+  let theme = 'dark'; try { theme = localStorage.getItem('municity.theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); } catch {}
+  applyTheme(theme);
+  $('themeToggle').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
+
+  // ── calendar ──────────────────────────────────────────────────────────────
+  function renderCalendar(st, cfg) {
+    const m = st.turn ? monthIndex(st.turn, cfg) : cfg.FOUNDING_MONTH;
+    const fyMonth = st.turn % 12;                       // 0 = fiscal year just closed
+    $('calMo').textContent = MONTHS[m].toUpperCase();
+    $('calYr').textContent = st.turn ? `Year ${yearOf(st.turn)} · FY month ${fyMonth || 12}/12` : 'Founding day';
+    const snow = CLIMATES[st.tile.climate].snow;
+    let dots = '';
+    for (let i = 1; i <= 12; i++) {
+      const mi = (cfg.FOUNDING_MONTH + i - 1) % 12;
+      const cl = [snow[mi] > 0 ? 'snow' : '', i < (fyMonth || 12) || (fyMonth === 0 && st.turn) ? 'done' : '', i === (fyMonth || (st.turn ? 12 : 0)) ? 'now' : ''].join(' ');
+      dots += `<i class="${cl}" title="${MONTHS[mi]}"></i>`;
+    }
+    $('calDots').innerHTML = dots;
+  }
+  $('cal').addEventListener('click', () => runTool('weather'));
 
   // ── modal ─────────────────────────────────────────────────────────────────
   let activeTool = null;
@@ -287,12 +342,43 @@
       });
     },
 
-    buy() {
-      const st = game.state;
-      const owned = st.assets.length ? st.assets.map(a => `<div class="card">${kv(a.label, st.turn < a.arrivesTurn ? `arrives in ${a.arrivesTurn - st.turn} mo` : a.idled ? '<span class="bad">furloughed</span>' : `condition ${a.condition.toFixed(0)}`, st.turn < a.arrivesTurn ? '' : cls(a.condition, 60, 30))}${kv('Upkeep', st.turn <= a.warrantyUntil ? `warranty, ${a.warrantyUntil - st.turn} mo left` : fmt$(a.maintNeed) + '/mo')}</div>`).join('') : '<p>Nothing yet. The county plows your roads — slowly, and it bills you.</p>';
-      const bids = PLOW_BIDS.map(b => `<div class="bid"><div class="t">${b.label}</div><div class="d">${fmt$(b.price)} · condition ${b.condition} · upkeep ${fmt$(b.maintNeed)}/mo${b.warrantyTurns ? ` after ${b.warrantyTurns}-mo warranty` : ''} · arrives in ${b.deliveryTurns} mo</div><button class="ghost" data-bid="${b.id}" ${canAfford(st, b) && !st.takeover ? '' : 'disabled'}>${st.takeover ? 'County controls purchasing' : canAfford(st, b) ? 'Buy' : 'Can’t afford — see Loans'}</button></div>`).join('');
-      openModal('Equipment', `One plow keeps ${game.cfg.PLOW_CAPACITY} road segments clear. You have ${st.infrastructure.length}.`, `<div class="cols"><div><h3 style="margin:0 0 8px">Owned</h3>${owned}</div><div><h3 style="margin:0 0 8px">Snowplow bids</h3>${bids}</div></div>`,
-        el => { for (const btn of el.querySelectorAll('button[data-bid]')) btn.onclick = () => act(s => buyAsset(s, PLOW_BIDS.find(b => b.id === btn.dataset.bid))); });
+    buy(tab, itemId) {
+      const st = game.state, cfg = game.cfg;
+      tab = tab ?? tools._buyTab ?? 'buildings'; tools._buyTab = tab;
+      const catId = CATALOG[tab] ? tab : 'buildings'; const cat = CATALOG[catId]; const itemIds = Object.keys(cat.items);
+      itemId = itemId && cat.items[itemId] ? itemId : (tools._buyItem?.[catId] ?? itemIds[0]); (tools._buyItem ??= {})[catId] = itemId;
+      const item = cat.items[itemId];
+      const bestLoan = loanProducts(st, cfg).filter(p => p.max > 0).sort((a, b) => a.rate - b.rate)[0];
+      const meter = (label, v, warnBelow = 60, badBelow = 35) => `<div class="meter"><span>${label}</span><div class="bar"><i class="${v < badBelow ? 'bad' : v < warnBelow ? 'warn' : ''}" style="width:${v}%"></i></div><b>${Math.round(v)}</b></div>`;
+      const offers = item.offers.map(o => {
+        const full = { ...o, catId, itemId, itemLabel: item.label, tier: item.tier };
+        const why = purchaseBlocker(st, full, cfg);
+        const fin = bestLoan ? monthlyPayment(o.price, bestLoan.rate, Math.min(bestLoan.termTurns, Math.max(24, o.lifespanTurns))) : null;
+        return `<div class="offer"><div class="n">${o.name}</div><div class="price">${fmt$(o.price)}</div>
+          ${meter('Efficiency', o.efficiency)}${meter('Condition', o.condition)}
+          <div class="line"><span>Expected life</span><b>${(o.lifespanTurns / 12).toFixed(0)} yrs</b></div>
+          <div class="line"><span>Upkeep</span><b>${fmt$(o.maintNeed)}/mo${o.warrantyTurns ? ` after ${o.warrantyTurns / 12} yr warranty` : ''}</b></div>
+          ${o.vehicleSlots ? `<div class="line"><span>Parks</span><b>${o.vehicleSlots} vehicles${o.mechanic ? ' · mechanic' : ''}</b></div>` : ''}
+          <div class="line"><span>Financed</span><b>${fin ? `≈ ${fmt$(fin)}/mo at ${pct(bestLoan.rate)}` : '—'}</b></div>
+          <div class="line"><span>Delivery</span><b>${o.deliveryTurns} mo</b></div>
+          ${why ? `<div class="why">${why}</div>` : ''}
+          <button class="${why ? 'ghost' : ''}" data-offer="${o.id}" ${why ? 'disabled' : ''}>${why ? 'Unavailable' : 'Buy'}</button></div>`;
+      }).join('');
+      const owned = st.assets.map(a => `<div class="offer"><div class="n">${a.label}</div>
+          ${st.turn < a.arrivesTurn ? `<div class="why">Arrives in ${a.arrivesTurn - st.turn} mo</div>` : a.idled ? '<div class="why">Furloughed by the county</div>' : ''}
+          ${meter('Efficiency', a.efficiency)}${meter('Condition', a.condition)}
+          <div class="line"><span>Age</span><b>${Math.max(0, st.turn - a.arrivesTurn)} / ${a.lifespanTurns} mo${st.turn - a.arrivesTurn > a.lifespanTurns ? ' <span class="bad">past life</span>' : ''}</b></div>
+          <div class="line"><span>Upkeep</span><b>${st.turn <= a.warrantyUntil ? `warranty, ${a.warrantyUntil - st.turn} mo` : fmt$(a.maintNeed * (st.turn - a.arrivesTurn > a.lifespanTurns ? cfg.PAST_LIFE_UPKEEP_MULT : 1)) + '/mo'}</b></div>
+          ${a.vehicleSlots ? `<div class="line"><span>Parks</span><b>${a.vehicleSlots}${a.mechanic ? ' · mechanic' : ''}</b></div>` : ''}</div>`).join('');
+      const slots = vehicleSlots(st), vehicles = st.assets.filter(a => CATALOG.vehicles.items[a.type]).length;
+      openModal('Buy', `${st.assets.length ? `${st.assets.length} owned · ${vehicles}/${slots} vehicle slots${hasMechanic(st) ? ' · mechanic on staff' : ''}` : 'Nothing owned yet.'} Condition falls with age${hasMechanic(st) ? ' (halved by your mechanic)' : ''} and use; Public Works capital repairs it.`,
+        `<div class="tabs">${Object.entries(CATALOG).map(([id, c]) => `<button class="${id === tab ? 'on' : ''}" data-tab="${id}">${c.label}</button>`).join('')}<button class="${tab === 'owned' ? 'on' : ''}" data-tab="owned">Owned (${st.assets.length})</button></div>
+         ${tab === 'owned' ? `<div class="offers">${owned || '<p>Nothing yet.</p>'}</div>` : `<div class="items">${itemIds.map(id => `<button class="${id === itemId ? '' : 'ghost'}" data-item="${id}">${cat.items[id].label}</button>`).join('')}</div><p style="color:var(--dim);margin:0 0 10px">${item.blurb}${cat.requires && !st.assets.some(a => a.type === cat.requires) ? ` <span class="warn">Needs a ${CATALOG.buildings.items[cat.requires].label} first.</span>` : ''}</p><div class="offers">${offers}</div>`}`,
+        el => {
+          for (const b of el.querySelectorAll('[data-tab]')) b.onclick = () => { if (b.dataset.tab === 'owned') { tools._buyTab = 'owned'; tools.buy('owned'); } else tools.buy(b.dataset.tab); };
+          for (const b of el.querySelectorAll('[data-item]')) b.onclick = () => tools.buy(catId, b.dataset.item);
+          for (const b of el.querySelectorAll('[data-offer]')) b.onclick = () => act(s => buyAsset(s, b.dataset.offer, cfg));
+        });
     },
 
     policy() {
@@ -313,16 +399,25 @@
         <div class="card"><h3>Bench — hands off</h3>
           <label><span>Years</span><input type="number" id="bYears" value="10"></label>
           <label><span>Auto-incorporate</span><input type="checkbox" id="bInc" checked></label>
-          <label><span>Plow at start</span><select id="bPlow"><option value="">none</option>${PLOW_BIDS.map(b => `<option value="${b.id}">${b.id}</option>`).join('')}</select></label>
+          <label><span>Yard + plow at start</span><select id="bPlow"><option value="">none</option>${CATALOG.vehicles.items.plow.offers.map(o => `<option value="${o.id}">${o.name}</option>`).join('')}</select></label>
+          <label><span>Loan at start</span><input type="number" id="bLoan" value="0" step="10000"></label>
           <button id="bRun" class="ghost">Run with current settings</button><small>Runs the budget you'd found with, untouched, for the whole span. For seeing what a strategy does.</small></div></div>`;
       openModal('Town', 'Start over, or run the sim hands-off.', body, () => {
         $('nFound').onclick = () => found($('nScenario').value, +$('nSeed').value);
         $('bRun').onclick = () => {
           const cfg = liveConfig(), rng = createRng(+$('nSeed').value);
           let st = createTurnZero(scenarioBudget($('nScenario').value), cfg);
-          const plowId = $('bPlow').value; if (plowId && canAfford(st, PLOW_BIDS.find(b => b.id === plowId))) st = buyAsset(st, PLOW_BIDS.find(b => b.id === plowId));
+          const founding = { budget: structuredClone(st.budget), millage: st.millage };
+          try {
+            const loan = +$('bLoan').value; if (loan > 0) st = borrow(st, loanProducts(st, cfg).find(p => p.id === 'county-long'), loan);
+            const plowId = $('bPlow').value; if (plowId) { st = buyAsset(st, 'yard-lot', cfg); st = buyAsset(st, plowId, cfg); }
+          } catch (e) { alert(e.message); return; }
           const rows = [st];
-          for (let t = 0; t < +$('bYears').value * 12; t++) { st = resolveTurn(st, rng, cfg); if (st.turn % 12 === 0) st = annualReview(st, cfg, rng); if ($('bInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st); }
+          for (let t = 0; t < +$('bYears').value * 12; t++) {
+            st = resolveTurn(st, rng, cfg);
+            if (st.turn % 12 === 0) { st = annualReview(st, cfg, rng); if (!st.takeover) { st.budget = structuredClone(founding.budget); st.millage = founding.millage; } }
+            if ($('bInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st);
+          }
           game = { cfg, rng, state: st, rows }; closeModal(); render();
         };
       });
@@ -355,6 +450,7 @@
   function render() {
     const st = game.state, cfg = game.cfg, lt = st.lastTurn;
     $('date').textContent = monthLabel(st.turn, cfg);
+    renderCalendar(st, cfg);
     const occ = st.lots.filter(l => l.state === 'occupied').length, bld = st.lots.filter(l => l.state === 'construction').length;
     const cap = st.lots.filter(l => l.state === 'occupied').reduce((s, l) => s + l.capacity, 0);
     $('sPop').textContent = st.population;
@@ -380,11 +476,12 @@
     } else {
       const bits = [];
       bits.push(`Revenue <b>${fmt$(lt.revenue)}</b>${lt.seedIncome ? ` (${fmt$(lt.seedIncome)} from the land)` : ''}, spent <b>${fmt$(lt.expenses)}</b>${lt.debtService ? ` including ${fmt$(lt.debtService)} debt service` : ''}.`);
-      if (lt.snow) bits.push(`<span class="snow">Snow.</span> ${lt.plowedBy === 'county' ? 'The county plowed, eventually' : 'Your crew plowed'} — roads open ${(lt.passability * 100).toFixed(0)}% of the month, ${fmt$(lt.plowCost)} for clearing.`);
+      if (lt.snow) bits.push(`<span class="snow">Snow.</span> ${lt.plowedBy === 'county' ? 'The county plowed, eventually' : lt.plowedBy === 'mixed' ? 'Your crew and the county plowed' : 'Your crew plowed'} — roads open ${(lt.passability * 100).toFixed(0)}% of the month, ${fmt$(lt.plowCost)} for clearing.`);
       if (lt.repairSpend > 0) bits.push(`Spent ${fmt$(lt.repairSpend)} of capital on repairs.`);
       if (lt.netMigration > 0) bits.push(`<b>${lt.netMigration}</b> new resident${lt.netMigration > 1 ? 's' : ''} moved in.`);
       if (lt.netMigration < 0) bits.push(`<span class="bad">${-lt.netMigration} resident${lt.netMigration < -1 ? 's' : ''} left.</span>`);
       if (lt.lotsZoned) bits.push(`Zoned ${lt.lotsZoned} more lots and built a road segment.`);
+      for (const a of st.assets) if (a.arrivesTurn === st.turn) bits.push(`Your <b>${a.label}</b> arrived.`);
       if (lt.lotsStarted) bits.push(`${lt.lotsStarted} home${lt.lotsStarted > 1 ? 's' : ''} broke ground.`);
       if (lt.lotsCompleted) bits.push(`${lt.lotsCompleted} home${lt.lotsCompleted > 1 ? 's' : ''} finished and joined the tax rolls.`);
       if (lt.event?.type === 'storm') bits.push(`<span class="warn">A storm tore up ${lt.event.target}</span> (−${lt.event.damage} condition).`);

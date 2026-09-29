@@ -443,7 +443,14 @@ path sums over speed-weighted segments, so a neglected road makes the fire truck
 in the table as a service-quality penalty, in Street Mode as the drive itself. One number,
 both layers.
 
-**Assets.** `{ type, condition, maintNeed, opex, lifespanTurns, warrantyTurns }`. Owned
+**Assets — built v0.5, `sim/catalog.js`.** Catalog is categories → items → up to 3 offers.
+Every offer and every owned asset shows four numbers: **efficiency** (0–100, how well it
+does the job — a 65 plow clears 65% of what a 100 plow does, further discounted by
+condition), **condition** (falls `ASSET_AGE_DECAY`/mo from age, halved by a mechanic, plus
+use; capital repairs restore it), **expected life** (`lifespanTurns`; past it, upkeep ×2),
+and **cost** (price, upkeep after warranty, and what financing runs per month at today's
+best rate). Vehicles require a **Public Works yard** (base building: gravel lot holds 2, no
+mechanic; garage holds 4, has a mechanic). The yard is the seed of city hall. Owned
 vehicles are the vehicles Street Mode drives — same object, both layers.
 
 ## 12c. Long horizon — eras, census, county (designed 2026-09-28, not scheduled)
@@ -526,7 +533,8 @@ map first; map builder is far future.
 2. **Debt + credit review** — bonds, county loans, capacity, debt service in Phase 2,
    annual rating, `debtServiceRatio` on the budget screen.
 3. ~~Seasons + Midwest climate~~ — done v0.2 (`sim/climate.js`).
-4. ~~Snowplow with county-auction vs dealer bids~~ — done v0.2 (`sim/actions.js`); cash only.
+4. ~~Snowplow with bids~~ — done v0.2; **catalog with yard prerequisite, efficiency, aging,
+   lifespan** — done v0.5 (`sim/catalog.js`).
 5. ~~Debt + credit review~~ — done v0.3 (`sim/finance.js`).
 6. ~~County takeover~~ — done v0.4 (`sim/phases/oversight.js`).
 7. **Founding screen** — 3×3 grid, ≥3 seed types (§12c).

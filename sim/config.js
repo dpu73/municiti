@@ -27,6 +27,9 @@ export const config = Object.freeze({
   PLOW_CAPACITY: 6,             // road segments one plow can keep clear
   PLOW_OPEX: 700,               // $ fuel + driver per plow per full-snow month
   PLOW_WEAR: 3,                 // condition points per plow per full-snow month
+  ASSET_AGE_DECAY: 0.6,         // condition points per month just from age
+  MECHANIC_FACTOR: 0.5,         // age decay multiplier when a yard with a mechanic exists
+  PAST_LIFE_UPKEEP_MULT: 2,     // upkeep multiplier once an asset outlives lifespanTurns
   REPAIR_COST_PER_POINT: 150,   // $ of capital to restore one condition point
 
   // Desirability

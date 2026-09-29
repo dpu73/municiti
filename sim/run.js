@@ -32,14 +32,19 @@ export function runScenario({ scenario = 'balanced', turns = 120, seed = 1, auto
   if (!s) throw new Error(`unknown scenario "${scenario}" — options: ${Object.keys(SCENARIOS).join(', ')}`);
 
   const rng = createRng(seed);
-  let state = createTurnZero({ budget: { publicWorks: s.publicWorks, services: s.services }, millage: s.millage });
+  const founding = { budget: { publicWorks: { ...s.publicWorks }, services: { ...s.services } }, millage: s.millage };
+  let state = createTurnZero(structuredClone(founding));
   if (loan) state = borrow(state, loanProducts(state, config).find(p => p.id === 'county-long'), loan);
-  if (plow) state = buyAsset(state, PLOW_BIDS.find(b => b.id === plow));
+  if (plow) { state = buyAsset(state, 'yard-lot', config); state = buyAsset(state, `plow-${plow}`, config); }
   const history = [state];
 
   for (let t = 0; t < turns; t++) {
     state = resolveTurn(state, rng);
-    if (state.turn % 12 === 0) state = annualReview(state, config, rng);
+    if (state.turn % 12 === 0) {
+      state = annualReview(state, config, rng);
+      // Stand-in player: re-adopt the founding budget every year unless the county has it.
+      if (!state.takeover) { state.budget = structuredClone(founding.budget); state.millage = founding.millage; }
+    }
     if (autoIncorporate && canIncorporate(state)) state = incorporate(state);
     history.push(state);
   }
