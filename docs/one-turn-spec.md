@@ -418,7 +418,20 @@ anachronism is acceptable. Assets keep their era's visual until replaced (`bough
 The census is the scheduled moment for irreversible things: annexation, secession on
 sustained unhappiness, county-wide votes, mega-projects, regional transit.
 
-**County = 3×3 grid of settlement sites.** Neighbors are municipalities run by policy
+**County = 3×3 grid; 6–8 cells usable**, the rest water, preserve, mountain or canyon.
+A cell is a *settlement site*, not a city boundary. Two scales:
+- *Parcels* (inside a cell): bought any time with money. Zoning batches already do this.
+- *Cells*: annexing a populated neighbor cell or town, or losing one to secession on
+  sustained low desirability, happens only at the census by vote.
+Incorporation is unchanged — a status the municipality chooses at `INCORPORATION_POP`.
+No click-to-incorporate; the click is "buy this parcel".
+
+**Founding screen (after debt):** the 3×3 grid with each cell's seed shown; the player
+picks. Needs ≥3 seed types that behave differently to be a decision, e.g. farmland
+(steady income), river crossing (less income, higher SEED_PULL), ore (high income that
+depletes). Until then a map is a picture.
+
+**Settlement sites.** Neighbors are municipalities run by policy
 functions (the bench's `budgetPolicy` with personalities) in lockstep resolution. **Pre-sim:**
 choosing a start year later than founding runs the same `resolveTurn` for every site from
 the founding era to the start year — no separate generator. This is the payoff for a
@@ -434,9 +447,12 @@ sci-fi). Four.
 - *Construction phase:* each city contributes money per year (AI towns by policy).
   `completionTurns = totalNeed / contributionRate × educationMod`, floored ~24–36 turns,
   capped ~60–72; at the cap the county finishes it and bills everyone.
-- *Free-rider rule (load-bearing):* cities that fund their share get the unlock at
-  completion, at cost; laggards get it later / at a surcharge / lose a vote. Without this
-  the rational move is to contribute nothing and the project is a cutscene.
+- *Free-rider rule (load-bearing):* contributors get the unlock at completion, at cost.
+  Non-contributors buy in later at a surcharge that grows with delay (~150% → 200%), or
+  not at all where engineering excluded them (no retroactive rail stop). Contribution
+  share sets vote weight on the *next* project — influence as computed history, not a
+  spendable resource. No "cooperation" stat unless playtesting proves these two levers
+  insufficient.
 - *Unlock:* completion grants the capability county-wide **regardless of era** — a bus
   depot opens and every city can buy buses and stations. Era gates the catalog;
   mega-projects override the gate. This is how a lagging town leapfrogs.
