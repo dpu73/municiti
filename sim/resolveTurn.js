@@ -12,6 +12,7 @@ import { desirability } from './phases/desirability.js';
 import { population }   from './phases/population.js';
 import { development }  from './phases/development.js';
 import { events }       from './phases/events.js';
+import { oversight }    from './phases/oversight.js';
 
 export const PHASES = [
   revenue,
@@ -21,6 +22,7 @@ export const PHASES = [
   population,
   development,
   events,
+  oversight,
 ];
 
 export function resolveTurn(prevState, rng, config = defaultConfig) {

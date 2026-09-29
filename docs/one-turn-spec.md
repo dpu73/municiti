@@ -275,7 +275,13 @@ before adding anything.
 | $50k county loan, unspent | 27 | $94k | B |
 | $150k county loan → dealer plow | 31 | −$100k | F, 69 deficit months |
 
-**Finding:** the trap is live and the numbers are right. Also: 69 deficit months with no
+**v0.4 follow-up:** same run with takeover: county steps in at 54 (balance trigger), sells
+the plow for $62k at 60, returns control at D. Austerity budget stands with no player to
+replace it; town bleeds 33 → 9. Correct: the bench has no player. Also: an unincorporated
+town with the same loan never trips takeover — seed income carries it. Incorporation
+timing is now a real fiscal decision, not just a threshold.
+
+**Finding (v0.3):** the trap is live and the numbers are right. Also: 69 deficit months with no
 consequence beyond F means **county takeover (10 deficit months) must be un-parked** before
 tuning anything else, or deficit spending is free. Note the plow-owning town's roads rot:
 capital repairs now split between truck and asphalt. That's correct and should stay.
@@ -366,6 +372,22 @@ A ≥ 85 · B ≥ 70 · C ≥ 55 · D ≥ 40 · F. Starts at B (unrated). `rate(
 countyBaseRate + RATING_SPREAD[grade] (+ product spread)`. Locked until the next review.
 **F closes the bond market**; county loans continue at `COUNTY_F_PENALTY`.
 Rating also gates grant eligibility (not built).
+
+**County takeover — built v0.4, Phase 8 `oversight`** (runs last each turn).
+- *Trigger:* `TAKEOVER_DEFICIT_MONTHS` (10) consecutive negative months, **or** treasury below
+  −`TAKEOVER_BALANCE_MONTHS` (3) months of opex at any point.
+- *While in control:* operations forced to `AUSTERITY_MAINT_RATIO` × maintenance need and
+  `AUSTERITY_SERVICE_RATIO` × service need; capital 0; millage × 1.5 up to a cap; auto-zoning
+  off; every **add-on** asset furloughed (no upkeep, no use — the county plows again and
+  bills you). Still negative after `TAKEOVER_SELL_AFTER` (6) months → add-ons sold at
+  `SALVAGE_RATIO` × condition, worst first, one per month.
+- *Base assets are never touched.* Assets carry `tier: 'base' | 'addon'`: a station or
+  depot is base; extra trucks, a helipad, a plow are add-ons. SimCity's plop-then-upgrade
+  shape, and the takeover reaches only the upgrades.
+- *Player keeps:* End Month. Budget, borrowing, purchasing are locked. Phase 4 delivers the
+  fallout (cuts + tax hike → desirability ↓ → people leave). No anger stat.
+- *Exit:* treasury > 0 and `TAKEOVER_EXIT_RESERVE` (3) months of reserves. The county's
+  budget stands until the player adopts a new one. Next credit review is capped at D.
 
 **Debt burden.** `debtServiceRatio = debtService / revenue`. First number on the annual
 budget screen; warning zone above ~0.15–0.20. **No separate "anger" stat.** Too much debt
@@ -506,8 +528,7 @@ map first; map builder is far future.
 3. ~~Seasons + Midwest climate~~ — done v0.2 (`sim/climate.js`).
 4. ~~Snowplow with county-auction vs dealer bids~~ — done v0.2 (`sim/actions.js`); cash only.
 5. ~~Debt + credit review~~ — done v0.3 (`sim/finance.js`).
-6. **County takeover** — un-park: 10 consecutive deficit months → consequence. Without it
-   deficit spending is free.
+6. ~~County takeover~~ — done v0.4 (`sim/phases/oversight.js`).
 7. **Founding screen** — 3×3 grid, ≥3 seed types (§12c).
 8. **Grants** — petition with match and restriction.
 9. **Remaining climates, contractors, departments** — per §12b.

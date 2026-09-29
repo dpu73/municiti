@@ -69,6 +69,17 @@ export const config = Object.freeze({
   RATE_DRIFT: 0.0075,           // max yearly move of the county base rate
   REVIEW_RESERVE_TARGET: 6,     // months of opex for full marks
 
+  // County takeover (spec §12, un-parked v0.4)
+  TAKEOVER_DEFICIT_MONTHS: 10,  // consecutive months negative → takeover
+  TAKEOVER_BALANCE_MONTHS: 3,   // or treasury below −(this many months of opex) → immediate
+  AUSTERITY_MAINT_RATIO: 0.5,   // county funds road maintenance at this share of need
+  AUSTERITY_SERVICE_RATIO: 0.25,// and services at this share of full need
+  AUSTERITY_MILLAGE_MULT: 1.5,
+  AUSTERITY_MILLAGE_CAP: 16,
+  TAKEOVER_SELL_AFTER: 6,       // months under takeover still negative → sell assets
+  SALVAGE_RATIO: 0.4,           // sale price = price × this × condition/100
+  TAKEOVER_EXIT_RESERVE: 3,     // months of reserves needed to regain control
+
   // Events (d100)
   STORM_MAX_ROLL: 4,
   GRANT_MAX_ROLL: 6,

@@ -52,6 +52,7 @@ export function createTurnZero(decisions, config = defaultConfig) {
     credit: { grade: 'B', score: 70, reviewedTurn: 0, inputs: null, previous: null },
     county: { baseRate: config.START_BASE_RATE },
     fiscal: { deficitMonthsYTD: 0, revenueYTD: 0, debtServiceYTD: 0, lastYear: null },
+    takeover: null,             // { sinceTurn, sold: [] } while the county runs the budget
     infrastructure: [
       { id: 'road-0', type: 'road', condition: 100, maintNeed: config.ROAD_MAINT_NEED },
     ],

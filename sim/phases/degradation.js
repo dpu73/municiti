@@ -12,7 +12,7 @@ export function degradation(state, config) {
 
   // ── snow: who plows, what it costs, how long roads sit closed ─────────
   const roads = state.infrastructure.filter(i => i.type === 'road');
-  const plows = state.assets.filter(a => a.type === 'plow' && state.turn >= a.arrivesTurn && a.condition > 0);
+  const plows = state.assets.filter(a => a.type === 'plow' && state.turn >= a.arrivesTurn && a.condition > 0 && !a.idled);
   let passability = 1, plowCost = 0, plowedBy = 'none';
 
   if (snow > 0 && roads.length) {
@@ -44,7 +44,7 @@ export function degradation(state, config) {
   // ── repair: monthly capital allowance, worst-first, charged as used ────
   let allowance = (state.budget.publicWorks.capital ?? 0) / 12;
   let spent = 0;
-  const repairable = [...state.infrastructure, ...state.assets.filter(a => state.turn >= a.arrivesTurn)]
+  const repairable = [...state.infrastructure, ...state.assets.filter(a => state.turn >= a.arrivesTurn && !a.idled)]
     .sort((a, b) => a.condition - b.condition);
 
   for (const obj of repairable) {

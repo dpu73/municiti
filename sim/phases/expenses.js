@@ -11,7 +11,7 @@ export function expenses(state, config) {
 
   let assetUpkeep = 0;
   for (const a of state.assets) {
-    if (state.turn < a.arrivesTurn) continue;
+    if (state.turn < a.arrivesTurn || a.idled) continue;
     if (state.turn <= a.warrantyUntil) continue;
     assetUpkeep += a.maintNeed;
   }

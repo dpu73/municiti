@@ -69,6 +69,7 @@ export function loanProducts(state, config) {
 }
 
 export function borrow(state, product, amount) {
+  if (state.takeover) throw new Error('no borrowing during a county takeover');
   amount = Math.round(amount);
   if (!(amount > 0)) throw new Error('borrow: amount must be positive');
   if (amount > product.max + 0.5) throw new Error(`borrow: ${amount} exceeds ${product.label} limit of ${Math.round(product.max)}`);
@@ -104,12 +105,14 @@ export function annualReview(state, config, rng) {
   const dsr = f.revenueYTD > 0 ? f.debtServiceYTD / f.revenueYTD : 0;
   const dsrPts = clamp(1 - (dsr - 0.10) / 0.20, 0, 1) * 15;
   const score = reservesPts + deficitPts + leveragePts + dsrPts;
-  const grade = score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
+  let grade = score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
+  if (state.credit.probation && grade !== 'F') grade = 'D';   // one cycle of probation after a takeover
 
   next.credit = {
     grade, score: Math.round(score), reviewedTurn: next.turn,
     inputs: { reserveMonths: rm, deficitMonths: f.deficitMonthsYTD, leverage, debtServiceRatio: dsr },
     previous: state.credit.grade,
+    probation: !!state.takeover,   // stays on while the county is still in charge
   };
 
   // Rate environment: bounded random walk, once a year.

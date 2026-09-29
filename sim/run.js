@@ -68,7 +68,7 @@ export function printTable(history, every = 6) {
       pad(fmt$(st.debt.reduce((s, d) => s + d.principal, 0)), 8), pad(st.credit.grade, 2),
       pad(st.lots.length, 4), pad(occ, 3), pad(bld, 3), pad(st.deficitStreak, 3),
       st.incorporated ? '  ✓  ' : '     ',
-      (lt.snow ? `❄${lt.plowedBy} ` : '') + (lt.event ? lt.event.type : ''),
+      (st.takeover ? '⚠county ' : '') + (lt.snow ? `❄${lt.plowedBy} ` : '') + (lt.event ? lt.event.type : ''),
     );
   }
 }

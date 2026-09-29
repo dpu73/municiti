@@ -18,21 +18,28 @@
   header h1 { margin:0; font-size:20px; letter-spacing:.06em; }
   header .date { font-size:18px; color:var(--fg); }
   header .spacer { flex:1; }
-  header button { width:auto; margin:0; padding:6px 12px; font-size:14px; }
+  header button { width:auto; margin:0; padding:7px 14px; font-size:14px; }
+  header .tools { display:flex; gap:6px; flex-wrap:wrap; }
+  header .tools button.ghost { color:var(--fg); }
+  header .tools button.ghost.attn { border-color:var(--warn); color:var(--warn); }
+  header .primary { display:flex; gap:6px; }
+  header .primary button { padding:8px 16px; }
 
   .stats { display:grid; grid-template-columns:repeat(6, 1fr); gap:1px; background:var(--line); border-bottom:1px solid var(--line); }
-  .stat { background:var(--panel); padding:12px 18px; }
+  .stat { background:var(--panel); padding:12px 18px; cursor:pointer; }
+  .stat:hover { background:var(--card); }
   .stat .k { font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); }
   .stat .v { font-size:24px; font-weight:600; margin-top:2px; }
   .stat .s { font-size:13px; color:var(--dim); }
   .good { color:var(--acc); } .warn { color:var(--warn); } .bad { color:var(--bad); } .snow { color:var(--snow); }
 
-  main { display:grid; grid-template-columns: 320px 1fr; min-height:calc(100vh - 140px); }
-  main.showcfg { grid-template-columns: 320px 1fr 340px; }
-  aside { padding:16px; background:var(--panel); border-right:1px solid var(--line); }
-  aside.right { display:none; border-right:0; border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 140px); }
+  main { display:grid; grid-template-columns: 1fr; min-height:calc(100vh - 140px); }
+  main.showcfg { grid-template-columns: 1fr 340px; }
+  aside.right { display:none; padding:16px; background:var(--panel); border-left:1px solid var(--line); overflow:auto; max-height:calc(100vh - 140px); }
   main.showcfg aside.right { display:block; }
-  section { padding:16px 20px; overflow:auto; }
+  section { padding:16px 20px; overflow:auto; max-width:1100px; }
+  .banner { background:#3a2a12; border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:10px 14px; margin-bottom:12px; }
+  .banner b { color:var(--fg); }
 
   h2 { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--dim); margin:18px 0 8px; }
   h2:first-child { margin-top:0; }
@@ -69,16 +76,18 @@
   tr.inc td.l:first-child { color:var(--acc); }
   .wrap { overflow:auto; max-height:52vh; border:1px solid var(--line); border-radius:8px; }
 
-  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:10; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-start; justify-content:center; padding-top:6vh; z-index:10; }
   .overlay.open { display:flex; }
   .modal { background:var(--panel); border:1px solid var(--line); border-radius:10px; width:min(720px, 94vw); max-height:90vh; overflow:auto; padding:20px 24px; }
   .modal h3 { margin:0 0 4px; font-size:20px; }
+  .modal .x { float:right; width:auto; margin:0; padding:4px 10px; font-size:14px; }
   .modal .sub { color:var(--dim); margin-bottom:14px; }
   .modal .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
   .modal label input { width:140px; }
 
   @media (max-width: 960px) {
     .stats { grid-template-columns:repeat(3, 1fr); }
+    header { flex-wrap:wrap; }
     main, main.showcfg { grid-template-columns:1fr; }
     aside.right { max-height:none; border:0; border-top:1px solid var(--line); }
     .modal .cols { grid-template-columns:1fr; }
@@ -89,9 +98,19 @@
 <header>
   <h1>MUNICITY</h1>
   <span class="date" id="date">Founding day</span>
+  <div class="tools">
+    <button class="ghost" data-tool="budget" id="tBudget">Budget</button>
+    <button class="ghost" data-tool="finance">Loans</button>
+    <button class="ghost" data-tool="buy">Buy</button>
+    <button class="ghost" data-tool="policy">Policy</button>
+    <button class="ghost" data-tool="town">Town</button>
+  </div>
   <span class="spacer"></span>
-  <a href="docs/one-turn-spec.md" style="font-size:13px">spec</a>
-  <button class="ghost" id="cfgToggle">Config</button>
+  <div class="primary">
+    <button id="endTurn">End month</button>
+    <button id="skipYear" class="ghost">Skip to year end</button>
+  </div>
+  <button class="ghost" id="cfgToggle" title="Every constant, editable">⚙</button>
 </header>
 
 <div class="stats">
@@ -104,51 +123,8 @@
 </div>
 
 <main id="main">
-  <aside>
-    <h2>This month</h2>
-    <button id="endTurn" disabled>End month</button>
-    <div class="row">
-      <button id="skipYear" class="ghost" disabled>Skip to year end</button>
-    </div>
-    <button id="incorporate" class="warn" hidden>Incorporate</button>
-    <small id="hint"></small>
-
-    <h2>Equipment</h2>
-    <div id="assets"></div>
-    <details id="shop"><summary>Buy a snowplow</summary><div id="bids"></div></details>
-
-    <h2>Finances</h2>
-    <div class="card" id="finCard"></div>
-    <details id="borrowBox"><summary>Borrow</summary>
-      <label><span>Product</span><select id="loanProduct"></select></label>
-      <label><span>Amount</span><input type="number" id="loanAmount" step="5000" value="50000"></label>
-      <div class="card" id="loanPreview"></div>
-      <button id="borrowBtn" class="ghost">Borrow</button>
-      <small id="borrowHint"></small>
-    </details>
-    <div id="notes"></div>
-
-    <h2>Adopted budget</h2>
-    <div class="card" id="budgetCard"></div>
-
-    <details open id="setup">
-      <summary>New town</summary>
-      <label><span>Starting budget</span><select id="scenario"></select></label>
-      <label><span>Seed</span><input type="number" id="seed" value="1"></label>
-      <button id="newTown" class="ghost">Found town</button>
-      <small>Starting budget is the first decision. You'll revisit it every year.</small>
-    </details>
-
-    <details id="bench">
-      <summary>Bench (hands-off)</summary>
-      <label><span>Turns</span><input type="number" id="turns" value="120" step="12"></label>
-      <label><span>Auto-incorporate</span><input type="checkbox" id="autoInc" checked></label>
-      <label><span>Buy plow at start</span><select id="benchPlow"><option value="">none</option></select></label>
-      <button id="run" class="ghost">Run hands-off</button>
-    </details>
-  </aside>
-
   <section>
+    <div id="banner"></div>
     <div class="card" id="monthCard"><h3>Welcome</h3><p>Found a town to begin.</p></div>
     <h2>Ledger <label style="display:inline-flex;gap:6px;margin-left:12px;font-size:13px;text-transform:none;letter-spacing:0"><input type="checkbox" id="allRows"> show every month</label></h2>
     <div class="wrap"><table id="out"></table></div>
@@ -162,22 +138,12 @@
   </aside>
 </main>
 
-<div class="overlay" id="budgetOverlay">
+<div class="overlay" id="overlay">
   <div class="modal">
-    <h3 id="bTitle">Annual budget</h3>
-    <div class="sub" id="bSub"></div>
-    <div class="cols">
-      <div id="bReport"></div>
-      <div>
-        <label><span>Public Works — operations /yr</span><input type="number" id="pwOps" step="100"></label>
-        <label><span>Public Works — capital /yr</span><input type="number" id="pwCap" step="100"></label>
-        <label><span>Services — operations /yr</span><input type="number" id="svcOps" step="100"></label>
-        <label><span>Millage (tax rate)</span><input type="number" id="millage" step="0.5"></label>
-        <div class="card" style="margin-top:10px"><div class="kv"><span>Planned spend /yr</span><b id="bPlan"></b></div><div class="kv"><span>vs last year's revenue</span><b id="bVs"></b></div></div>
-        <button id="adopt">Adopt budget</button>
-        <small>Operations are charged monthly. Capital is an allowance spent on repairs as needed. Services need about $<span id="bNeed"></span>/yr for full quality at current population.</small>
-      </div>
-    </div>
+    <button class="ghost x" id="mClose">✕</button>
+    <h3 id="mTitle"></h3>
+    <div class="sub" id="mSub"></div>
+    <div id="mBody"></div>
   </div>
 </div>
 
@@ -196,6 +162,7 @@
   const cls = (v, warnBelow, badBelow) => v < badBelow ? 'bad' : v < warnBelow ? 'warn' : 'good';
   const gradeCls = g => g === 'A' || g === 'B' ? 'good' : g === 'C' ? 'warn' : 'bad';
   const pct = r => (r * 100).toFixed(1) + '%';
+  const kv = (k, v, c = '') => `<div class="kv"><span>${k}</span><b class="${c}">${v}</b></div>`;
 
   // ── config overrides ──────────────────────────────────────────────────────
   const overrides = {};
@@ -216,178 +183,204 @@
   $('reset').addEventListener('click', () => { for (const k in overrides) delete overrides[k]; renderConfig(); });
   $('cfgToggle').addEventListener('click', () => $('main').classList.toggle('showcfg'));
 
-  // ── setup ─────────────────────────────────────────────────────────────────
-  for (const name of Object.keys(SCENARIOS)) $('scenario').append(new Option(name, name));
-  for (const b of PLOW_BIDS) $('benchPlow').append(new Option(b.id, b.id));
-
-  const scenarioBudget = name => {
-    const s = SCENARIOS[name];
-    return { budget: { publicWorks: { ...s.publicWorks }, services: { ...s.services } }, millage: s.millage };
-  };
+  // ── modal ─────────────────────────────────────────────────────────────────
+  let activeTool = null;
+  function openModal(title, sub, body, mount) {
+    $('mTitle').textContent = title; $('mSub').innerHTML = sub ?? ''; $('mBody').innerHTML = body;
+    if (mount) mount($('mBody'));
+    $('overlay').classList.add('open');
+  }
+  function closeModal() { $('overlay').classList.remove('open'); activeTool = null; }
+  const runTool = name => { activeTool = name; tools[name](); };
+  $('mClose').addEventListener('click', closeModal);
+  $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ── game ──────────────────────────────────────────────────────────────────
   let game = null;   // { cfg, rng, state, rows }
+  const scenarioBudget = name => { const s = SCENARIOS[name]; return { budget: { publicWorks: { ...s.publicWorks }, services: { ...s.services } }, millage: s.millage }; };
 
-  function found() {
+  function found(scenario = 'balanced', seed = 1) {
     const cfg = liveConfig();
-    const state = createTurnZero(scenarioBudget($('scenario').value), cfg);
-    game = { cfg, rng: createRng(+$('seed').value), state, rows: [state] };
-    $('setup').open = false;
-    render();
+    const state = createTurnZero(scenarioBudget(scenario), cfg);
+    game = { cfg, rng: createRng(seed), state, rows: [state] };
+    closeModal(); render();
   }
-
   function step() {
     game.state = resolveTurn(game.state, game.rng, game.cfg);
     game.rows.push(game.state);
     if (game.state.turn % 12 === 0) game.state = game.rows[game.rows.length - 1] = annualReview(game.state, game.cfg, game.rng);
     render();
-    if (game.state.turn % 12 === 0) openBudget();
+    if (game.state.turn % 12 === 0) runTool('budget');
   }
+  function replaceState(next) { game.state = next; game.rows[game.rows.length - 1] = next; render(); if (activeTool) tools[activeTool](); }
+  const act = fn => { try { replaceState(fn(game.state)); } catch (e) { alert(e.message); } };
 
-  function replaceState(next) { game.state = next; game.rows[game.rows.length - 1] = next; render(); }
-
-  $('newTown').addEventListener('click', found);
   $('endTurn').addEventListener('click', step);
   $('skipYear').addEventListener('click', () => { do step(); while (game.state.turn % 12 !== 0); });
-  $('incorporate').addEventListener('click', () => replaceState(incorporate(game.state)));
   $('allRows').addEventListener('change', render);
 
-  // ── budget modal ──────────────────────────────────────────────────────────
-  function openBudget() {
-    const st = game.state, cfg = game.cfg;
-    const yr = game.rows.slice(-12);
-    const sum = k => yr.reduce((s, r) => s + (r.lastTurn[k] ?? 0), 0);
-    const rev = sum('revenue'), exp = sum('expenses'), plow = sum('plowCost'), repair = sum('repairSpend'), upkeep = sum('assetUpkeep');
-    const opex = Object.values(st.budget).reduce((s, d) => s + (d.operations ?? 0), 0);
-    const reserveMonths = opex ? st.treasury / (opex / 12) : Infinity;
-    const road = st.infrastructure.reduce((s, i) => s + i.condition, 0) / st.infrastructure.length;
-    const sq = st.lastTurn.inputs?.serviceQuality ?? 0;
-    const need = st.population * cfg.SERVICE_NEED_PER_CAPITA;
-    const maint = st.infrastructure.reduce((s, i) => s + i.maintNeed, 0) * 12;
-
-    $('bTitle').textContent = `Annual budget — Year ${st.turn / 12 + 1}`;
-    $('bSub').textContent = `Year ${st.turn / 12} closed. ${st.incorporated ? 'City council' : 'You'} set${st.incorporated ? 's' : ''} next year's appropriations.`;
-    $('bReport').innerHTML = `
-      <div class="card"><h3>The year in review</h3>
-        <div class="kv"><span>Revenue</span><b>${fmt$(rev)}</b></div>
-        <div class="kv"><span>Spent</span><b>${fmt$(exp)}</b></div>
-        <div class="kv" style="padding-left:12px"><span>· snow removal</span><b>${fmt$(plow)}</b></div>
-        <div class="kv" style="padding-left:12px"><span>· repairs (capital)</span><b>${fmt$(repair)}</b></div>
-        <div class="kv" style="padding-left:12px"><span>· equipment upkeep</span><b>${fmt$(upkeep)}</b></div>
-        <div class="kv"><span>Net</span><b class="${rev - exp < 0 ? 'bad' : 'good'}">${fmt$(rev - exp)}</b></div>
+  // ── tools ─────────────────────────────────────────────────────────────────
+  const tools = {
+    budget() {
+      const st = game.state, cfg = game.cfg, yearEnd = st.turn % 12 === 0 && st.turn > 0;
+      const yr = game.rows.slice(-12);
+      const sum = k => yr.reduce((s, r) => s + (r.lastTurn[k] ?? 0), 0);
+      const rev = sum('revenue'), exp = sum('expenses');
+      const rm = reserveMonths(st), road = st.infrastructure.reduce((s, i) => s + i.condition, 0) / st.infrastructure.length;
+      const sq = st.lastTurn.inputs?.serviceQuality ?? 100, need = st.population * cfg.SERVICE_NEED_PER_CAPITA;
+      const maint = st.infrastructure.reduce((s, i) => s + i.maintNeed, 0) * 12;
+      const review = `<div class="card"><h3>${st.turn ? 'Year in review' : 'Starting position'}</h3>
+        ${st.turn ? kv('Revenue', fmt$(rev)) + kv('Spent', fmt$(exp)) + kv('· snow removal', fmt$(sum('plowCost'))) + kv('· repairs (capital)', fmt$(sum('repairSpend'))) + kv('· equipment upkeep', fmt$(sum('assetUpkeep'))) + kv('· debt service', fmt$(sum('debtService'))) + kv('Net', fmt$(rev - exp), rev - exp < 0 ? 'bad' : 'good') : kv('Treasury', fmt$(st.treasury)) + kv('Seed income', fmt$(st.tile.seed.income) + '/mo')}
       </div>
       <div class="card"><h3>Where things stand</h3>
-        <div class="kv"><span>Population</span><b>${st.population}</b> </div>
-        <div class="kv"><span>Treasury</span><b>${fmt$(st.treasury)}</b></div>
-        <div class="kv"><span>Reserves</span><b class="${cls(reserveMonths, 6, 3)}">${isFinite(reserveMonths) ? reserveMonths.toFixed(1) + ' months' : '∞'}</b></div>
-        <div class="kv"><span>Desirability</span><b class="${cls(st.desirability, 55, 45)}">${st.desirability.toFixed(0)}</b></div>
-        <div class="kv"><span>Road condition</span><b class="${cls(road, 70, 40)}">${road.toFixed(0)}</b> </div>
-        <div class="kv"><span>Service quality</span><b class="${cls(sq, 70, 40)}">${sq.toFixed(0)}</b></div>
-        <div class="kv"><span>Road maintenance need</span><b>${fmt$(maint)}/yr</b></div>
-        <div class="kv"><span>Debt outstanding</span><b>${fmt$(outstandingPrincipal(st))}</b></div>
-        <div class="kv"><span>Debt service</span><b class="${cls(1 - (st.credit.inputs?.debtServiceRatio ?? 0), 0.85, 0.7)}">${fmt$(annualDebtService(st))}/yr · ${((st.credit.inputs?.debtServiceRatio ?? 0) * 100).toFixed(0)}% of revenue</b></div>
-        <div class="kv"><span>Credit review</span><b class="${gradeCls(st.credit.grade)}">${st.credit.grade}${st.credit.previous && st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} · ${st.credit.score}/100</b></div>
-        ${st.deficitStreak ? `<div class="kv"><span>Deficit</span><b class="bad">${st.deficitStreak} month(s)</b></div>` : ''}
+        ${kv('Population', st.population)}${kv('Reserves', isFinite(rm) ? rm.toFixed(1) + ' months' : '∞', cls(rm, 6, 3))}${kv('Desirability', st.desirability.toFixed(0), cls(st.desirability, 55, 45))}
+        ${kv('Road condition', road.toFixed(0), cls(road, 70, 40))}${kv('Service quality', sq.toFixed(0), cls(sq, 70, 40))}${kv('Road maintenance need', fmt$(maint) + '/yr')}
+        ${kv('Debt service', fmt$(annualDebtService(st)) + '/yr')}${kv('Credit', `${st.credit.grade}${st.credit.previous && st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} · ${st.credit.score}/100`, gradeCls(st.credit.grade))}
       </div>`;
-    $('pwOps').value = st.budget.publicWorks.operations; $('pwCap').value = st.budget.publicWorks.capital;
-    $('svcOps').value = st.budget.services.operations; $('millage').value = st.millage;
-    $('bNeed').textContent = need.toLocaleString('en-US');
-    const plan = () => {
-      const p = (+$('pwOps').value) + (+$('pwCap').value) + (+$('svcOps').value);
-      $('bPlan').textContent = fmt$(p);
-      const d = rev - p; $('bVs').innerHTML = `<span class="${d < 0 ? 'bad' : 'good'}">${d < 0 ? '−' : '+'}${fmt$(Math.abs(d))}</span>`;
-    };
-    for (const id of ['pwOps','pwCap','svcOps']) $(id).oninput = plan;
-    plan();
-    $('budgetOverlay').classList.add('open');
-  }
-  $('adopt').addEventListener('click', () => {
-    const budget = { publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value }, services: { operations: +$('svcOps').value, capital: 0 } };
-    $('budgetOverlay').classList.remove('open');
-    replaceState(adoptBudget(game.state, budget, +$('millage').value));
-  });
+      const locked = !!st.takeover;
+      const form = locked
+        ? `<div class="banner"><b>The county controls this budget.</b> Operations are at maintenance floor, capital is zero, millage is ${st.millage}. Control returns when the balance is positive with ${cfg.TAKEOVER_EXIT_RESERVE} months of reserves.</div>` + kv('Public Works ops', fmt$(st.budget.publicWorks.operations) + '/yr') + kv('Services ops', fmt$(st.budget.services.operations) + '/yr') + kv('Millage', st.millage)
+        : `<label><span>Public Works — operations /yr</span><input type="number" id="pwOps" step="100" value="${st.budget.publicWorks.operations}"></label>
+           <label><span>Public Works — capital /yr</span><input type="number" id="pwCap" step="100" value="${st.budget.publicWorks.capital}"></label>
+           <label><span>Services — operations /yr</span><input type="number" id="svcOps" step="100" value="${st.budget.services.operations}"></label>
+           <label><span>Millage (tax rate)</span><input type="number" id="millage" step="0.5" value="${st.millage}"></label>
+           <div class="card" style="margin-top:10px">${kv('Planned spend /yr', '<span id="bPlan"></span>')}${kv(st.turn ? 'vs last year\'s revenue' : 'vs seed income', '<span id="bVs"></span>')}</div>
+           <button id="adopt">${yearEnd ? 'Adopt budget for Year ' + (st.turn / 12 + 1) : 'Adopt changes'}</button>
+           <small>Operations are charged monthly. Capital is an allowance spent on repairs as needed. Services need about ${fmt$(need)}/yr for full quality at current population. ${yearEnd ? 'Close to keep last year\'s budget.' : st.incorporated ? 'Mid-year changes are allowed for now; the annual lock arrives with board meetings.' : ''}</small>`;
+      openModal(yearEnd ? `Annual budget — Year ${st.turn / 12 + 1}` : 'Budget', yearEnd ? `Year ${st.turn / 12} closed.` : `Current appropriations · next review in ${12 - (st.turn % 12)} month${12 - (st.turn % 12) === 1 ? '' : 's'}`,
+        `<div class="cols"><div>${review}</div><div>${form}</div></div>`,
+        () => {
+          if (locked) return;
+          const base = st.turn ? rev : st.tile.seed.income * 12;
+          const plan = () => { const p = (+$('pwOps').value) + (+$('pwCap').value) + (+$('svcOps').value); $('bPlan').textContent = fmt$(p); const d = base - p; $('bVs').innerHTML = `<span class="${d < 0 ? 'bad' : 'good'}">${d < 0 ? '−' : '+'}${fmt$(Math.abs(d))}</span>`; };
+          for (const id of ['pwOps', 'pwCap', 'svcOps']) $(id).oninput = plan; plan();
+          $('adopt').onclick = () => { const b = { publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value }, services: { operations: +$('svcOps').value, capital: 0 } }; closeModal(); act(s => adoptBudget(s, b, +$('millage').value)); };
+        });
+    },
+
+    finance() {
+      const st = game.state, cfg = game.cfg;
+      const out = outstandingPrincipal(st), dcap = debtCapacity(st, cfg), rm = reserveMonths(st), products = loanProducts(st, cfg);
+      const body = `<div class="cols"><div>
+        <div class="card"><h3>Standing</h3>${kv('Credit rating', `${st.credit.grade} · ${st.credit.score}/100`, gradeCls(st.credit.grade))}${kv('Reserves', isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞', cls(rm, 6, 3))}${kv('Debt outstanding', fmt$(out))}${kv(st.incorporated ? 'Bond capacity left' : 'County loan room', fmt$(Math.max(0, dcap - out)))}${kv('Debt service', fmt$(annualDebtService(st) / 12) + '/mo')}${kv('County base rate', pct(st.county.baseRate))}</div>
+        <div class="card"><h3>Notes outstanding</h3>${st.debt.length ? st.debt.map(d => kv(d.label, fmt$(d.principal)) + kv(`<span style="padding-left:12px">${pct(d.rate)} · ${fmt$(d.payment)}/mo</span>`, d.remainingTurns + ' mo left')).join('') : '<p>None.</p>'}</div>
+      </div><div>
+        <div class="card"><h3>Borrow</h3>
+          ${st.takeover ? '<p class="bad">No borrowing during a county takeover.</p>' : `
+          <label><span>Product</span><select id="loanProduct">${products.map(p => `<option value="${p.id}">${p.label} · ${pct(p.rate)}</option>`).join('')}</select></label>
+          <label><span>Amount</span><input type="number" id="loanAmount" step="5000" value="50000"></label>
+          <div id="loanPreview"></div>
+          <button id="borrowBtn" class="ghost">Borrow</button>`}
+          <small>${st.incorporated ? (st.credit.grade === 'F' ? 'Bond market is closed at F. The county still lends, at a penalty.' : 'Bonds are capped at 8.6% of assessed value — grow the tax base to borrow more.') : 'Townships get county loans only: flat caps, higher rates. Incorporate to issue bonds.'} Rating is reviewed each year end and sets the rate on new debt.</small>
+        </div></div></div>`;
+      openModal('Loans & credit', `${st.incorporated ? 'City' : 'Township'} of one · base rate ${pct(st.county.baseRate)} + ${pct(cfg.RATING_SPREAD[st.credit.grade])} for grade ${st.credit.grade}`, body, () => {
+        if (st.takeover) return;
+        const sel = $('loanProduct'), preview = () => {
+          const p = products.find(x => x.id === sel.value), amt = +$('loanAmount').value, ok = p && amt > 0 && amt <= p.max + 0.5;
+          const pay = p ? monthlyPayment(amt, p.rate, p.termTurns) : 0;
+          $('loanPreview').innerHTML = p ? kv('Payment', `${fmt$(pay)}/mo for ${p.termTurns / 12} yrs`) + kv('Total interest', fmt$(pay * p.termTurns - amt)) + kv('Limit', fmt$(p.max), ok ? '' : 'bad') : '';
+          $('borrowBtn').disabled = !ok;
+        };
+        sel.onchange = preview; $('loanAmount').oninput = preview; preview();
+        $('borrowBtn').onclick = () => act(s => borrow(s, products.find(x => x.id === sel.value), +$('loanAmount').value));
+      });
+    },
+
+    buy() {
+      const st = game.state;
+      const owned = st.assets.length ? st.assets.map(a => `<div class="card">${kv(a.label, st.turn < a.arrivesTurn ? `arrives in ${a.arrivesTurn - st.turn} mo` : a.idled ? '<span class="bad">furloughed</span>' : `condition ${a.condition.toFixed(0)}`, st.turn < a.arrivesTurn ? '' : cls(a.condition, 60, 30))}${kv('Upkeep', st.turn <= a.warrantyUntil ? `warranty, ${a.warrantyUntil - st.turn} mo left` : fmt$(a.maintNeed) + '/mo')}</div>`).join('') : '<p>Nothing yet. The county plows your roads — slowly, and it bills you.</p>';
+      const bids = PLOW_BIDS.map(b => `<div class="bid"><div class="t">${b.label}</div><div class="d">${fmt$(b.price)} · condition ${b.condition} · upkeep ${fmt$(b.maintNeed)}/mo${b.warrantyTurns ? ` after ${b.warrantyTurns}-mo warranty` : ''} · arrives in ${b.deliveryTurns} mo</div><button class="ghost" data-bid="${b.id}" ${canAfford(st, b) && !st.takeover ? '' : 'disabled'}>${st.takeover ? 'County controls purchasing' : canAfford(st, b) ? 'Buy' : 'Can’t afford — see Loans'}</button></div>`).join('');
+      openModal('Equipment', `One plow keeps ${game.cfg.PLOW_CAPACITY} road segments clear. You have ${st.infrastructure.length}.`, `<div class="cols"><div><h3 style="margin:0 0 8px">Owned</h3>${owned}</div><div><h3 style="margin:0 0 8px">Snowplow bids</h3>${bids}</div></div>`,
+        el => { for (const btn of el.querySelectorAll('button[data-bid]')) btn.onclick = () => act(s => buyAsset(s, PLOW_BIDS.find(b => b.id === btn.dataset.bid))); });
+    },
+
+    policy() {
+      const st = game.state, cfg = game.cfg;
+      const body = `<div class="card">${kv('Auto-zoning', `<label style="margin:0"><input type="checkbox" id="pAutoZone" ${st.policy.autoZone ? 'checked' : ''} ${st.takeover ? 'disabled' : ''}></label>`)}<small>When demand exists and land runs out, zone ${cfg.LOT_BATCH} lots and build a road segment for ${fmt$(cfg.LOT_BATCH * cfg.LOT_ZONING_COST + cfg.ROAD_BUILD_COST)}. Becomes a monthly decision when board meetings arrive.</small></div>
+        <div class="card">${kv('Incorporation', st.incorporated ? '<span class="good">Incorporated</span>' : canIncorporate(st, cfg) ? '<button id="pInc" class="warn" style="width:auto;margin:0;padding:6px 12px">Incorporate now</button>' : `at population ${cfg.INCORPORATION_POP}`)}<small>${st.incorporated ? 'Property tax is your revenue. Bonds available.' : 'Ends seed income from the land; switches you to property tax and opens the bond market. Your call, your timing.'}</small></div>`;
+      openModal('Policy', 'Standing rules the town applies without asking each month.', body, el => {
+        const cb = $('pAutoZone'); if (cb) cb.onchange = () => act(s => { const n = structuredClone(s); n.policy.autoZone = cb.checked; return n; });
+        const inc = $('pInc'); if (inc) inc.onclick = () => { closeModal(); act(s => incorporate(s)); };
+      });
+    },
+
+    town() {
+      const body = `<div class="cols"><div class="card"><h3>New town</h3>
+          <label><span>Starting budget</span><select id="nScenario">${Object.keys(SCENARIOS).map(n => `<option>${n}</option>`).join('')}</select></label>
+          <label><span>Seed</span><input type="number" id="nSeed" value="${game ? game.rows[0].turn === 0 ? 1 : 1 : 1}"></label>
+          <button id="nFound" class="warn">Found a new town</button><small>Abandons the current one. The starting budget is your first decision; you revisit it every year.</small></div>
+        <div class="card"><h3>Bench — hands off</h3>
+          <label><span>Years</span><input type="number" id="bYears" value="10"></label>
+          <label><span>Auto-incorporate</span><input type="checkbox" id="bInc" checked></label>
+          <label><span>Plow at start</span><select id="bPlow"><option value="">none</option>${PLOW_BIDS.map(b => `<option value="${b.id}">${b.id}</option>`).join('')}</select></label>
+          <button id="bRun" class="ghost">Run with current settings</button><small>Runs the budget you'd found with, untouched, for the whole span. For seeing what a strategy does.</small></div></div>`;
+      openModal('Town', 'Start over, or run the sim hands-off.', body, () => {
+        $('nFound').onclick = () => found($('nScenario').value, +$('nSeed').value);
+        $('bRun').onclick = () => {
+          const cfg = liveConfig(), rng = createRng(+$('nSeed').value);
+          let st = createTurnZero(scenarioBudget($('nScenario').value), cfg);
+          const plowId = $('bPlow').value; if (plowId && canAfford(st, PLOW_BIDS.find(b => b.id === plowId))) st = buyAsset(st, PLOW_BIDS.find(b => b.id === plowId));
+          const rows = [st];
+          for (let t = 0; t < +$('bYears').value * 12; t++) { st = resolveTurn(st, rng, cfg); if (st.turn % 12 === 0) st = annualReview(st, cfg, rng); if ($('bInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st); }
+          game = { cfg, rng, state: st, rows }; closeModal(); render();
+        };
+      });
+    },
+
+    // stat-tile drilldowns
+    population() {
+      const st = game.state, lt = st.lastTurn;
+      const cap = st.lots.filter(l => l.state === 'occupied').reduce((s, l) => s + l.capacity, 0);
+      openModal('Population', `${st.population} residents`, `<div class="card">${kv('Housing capacity', cap)}${kv('Vacancy', Math.max(0, cap - st.population))}${kv('Lots', `${st.lots.length} zoned · ${st.lots.filter(l => l.state === 'occupied').length} homes · ${st.lots.filter(l => l.state === 'construction').length} building`)}${kv('Net migration this month', lt.netMigration ?? 0)}${kv('Carry (fractional people)', (st.migrationCarry ?? 0).toFixed(2))}</div><small>People arrive when desirability is above 50 and there's housing. They leave when it's below. Word of mouth scales with population; the land itself draws ${game.cfg.SEED_PULL}/mo at full pull.</small>`);
+    },
+    desirability() {
+      const st = game.state, i = st.lastTurn.inputs, W = game.cfg.DESIRABILITY_WEIGHTS;
+      openModal('Desirability', `${st.desirability.toFixed(1)} — 50 is neutral`, i ? `<div class="card">${kv(`Service quality × ${W.serviceQuality}`, i.serviceQuality.toFixed(0), cls(i.serviceQuality, 70, 40))}${kv(`Roads (condition × open) × ${W.infrastructure}`, i.infra.toFixed(0), cls(i.infra, 70, 40))}${kv(`Tax burden (inverted) × ${W.taxBurden}`, i.taxBurden.toFixed(0), cls(i.taxBurden, 50, 25))}${kv(`Safety × ${W.safety}`, i.safety.toFixed(0) + ' <span style="color:var(--dim)">(= services, for now)</span>')}${kv(`Amenities × ${W.amenities}`, i.amenities.toFixed(0) + ' <span style="color:var(--dim)">(stub)</span>')}</div>` : '<p>No month resolved yet.</p>');
+    },
+    roads() {
+      const st = game.state, lt = st.lastTurn;
+      openModal('Roads', `${st.infrastructure.length} segment${st.infrastructure.length === 1 ? '' : 's'}`, `<div class="card">${st.infrastructure.map(r => kv(r.id, r.condition.toFixed(0), cls(r.condition, 70, 40))).join('')}</div><div class="card">${kv('Maintenance need', fmt$(st.infrastructure.reduce((s, i) => s + i.maintNeed, 0)) + '/mo')}${kv('Funded', lt.fundingRatio != null ? (lt.fundingRatio * 100).toFixed(0) + '%' : '—')}${kv('Decay this month', lt.decay != null ? lt.decay.toFixed(2) + ' pts' : '—')}${kv('Repairs this month', fmt$(lt.repairSpend ?? 0))}</div><small>Fully funded maintenance means normal wear; unfunded doubles it. Capital reverses it, worst segment first. Each zoning batch adds a segment.</small>`);
+    },
+    weather() {
+      const st = game.state, cfg = game.cfg, lt = st.lastTurn, m = st.turn ? monthIndex(st.turn, cfg) : cfg.FOUNDING_MONTH;
+      openModal('Weather', `Midwest · ${MONTHS[m]}`, `<div class="card">${kv('Road wear multiplier', lt.weatherMod ? '×' + lt.weatherMod.toFixed(1) : '—')}${kv('Snow', lt.snow != null ? (lt.snow * 100).toFixed(0) + '%' : '—')}${lt.snow ? kv('Plowed by', lt.plowedBy) + kv('Roads open', (lt.passability * 100).toFixed(0) + '%') + kv('Clearing cost', fmt$(lt.plowCost)) : ''}</div><small>March–April is freeze-thaw: roads wear 60% faster. Snow from November to March. The county plows if you don't; it takes half the month and bills you.</small>`);
+    },
+  };
+  for (const btn of document.querySelectorAll('[data-tool]')) btn.addEventListener('click', () => runTool(btn.dataset.tool));
+  const tiles = { sPop: 'population', sTre: 'finance', sDes: 'desirability', sRoad: 'roads', sWx: 'weather', sSt: 'policy' };
+  for (const [id, tool] of Object.entries(tiles)) $(id).parentElement.addEventListener('click', () => runTool(tool));
 
   // ── render ────────────────────────────────────────────────────────────────
   function render() {
     const st = game.state, cfg = game.cfg, lt = st.lastTurn;
-    const on = true;
     $('date').textContent = monthLabel(st.turn, cfg);
-
-    // stats
     const occ = st.lots.filter(l => l.state === 'occupied').length, bld = st.lots.filter(l => l.state === 'construction').length;
     const cap = st.lots.filter(l => l.state === 'occupied').reduce((s, l) => s + l.capacity, 0);
     $('sPop').textContent = st.population;
     $('sPopS').textContent = lt.netMigration != null ? `${lt.netMigration >= 0 ? '+' : ''}${lt.netMigration} this month · housing for ${cap}` : `housing for ${cap}`;
     $('sTre').textContent = fmt$(st.treasury); $('sTre').className = 'v ' + (st.treasury < 0 ? 'bad' : '');
-    $('sTreS').innerHTML = (lt.revenue != null ? `${fmt$(lt.revenue)} in · ${fmt$(lt.expenses)} out` : `${fmt$(st.tile.seed.income)}/mo from the land`) + ` · rating <span class="${gradeCls(st.credit.grade)}">${st.credit.grade}</span>`;
+    $('sTreS').innerHTML = (lt.revenue != null ? `${fmt$(lt.revenue)} in · ${fmt$(lt.expenses)} out` : `${fmt$(st.tile.seed.income)}/mo from the land`) + ` · <span class="${gradeCls(st.credit.grade)}">${st.credit.grade}</span>${outstandingPrincipal(st) ? ' · debt ' + fmt$(outstandingPrincipal(st)) : ''}`;
     $('sDes').textContent = st.desirability.toFixed(0); $('sDes').className = 'v ' + cls(st.desirability, 55, 45);
     $('sDesS').textContent = lt.inputs ? `services ${lt.inputs.serviceQuality.toFixed(0)} · roads ${lt.inputs.infra.toFixed(0)} · taxes ${lt.inputs.taxBurden.toFixed(0)}` : '50 is neutral';
     const road = st.infrastructure.reduce((s, i) => s + i.condition, 0) / st.infrastructure.length;
     $('sRoad').textContent = road.toFixed(0); $('sRoad').className = 'v ' + cls(road, 70, 40);
     $('sRoadS').textContent = `${st.infrastructure.length} segment${st.infrastructure.length > 1 ? 's' : ''} · ${occ} homes · ${bld} building`;
     const m = st.turn ? monthIndex(st.turn, cfg) : cfg.FOUNDING_MONTH;
-    if (lt.snow) { $('sWx').innerHTML = `<span class="snow">❄ Snow</span>`; $('sWxS').textContent = `plowed by ${lt.plowedBy === 'own' ? 'your crew' : lt.plowedBy === 'mixed' ? 'you + county' : 'the county'} · ${fmt$(lt.plowCost)} · roads open ${(lt.passability * 100).toFixed(0)}%`; }
+    if (lt.snow) { $('sWx').innerHTML = `<span class="snow">❄ Snow</span>`; $('sWxS').textContent = `${lt.plowedBy === 'own' ? 'your crew' : lt.plowedBy === 'mixed' ? 'you + county' : 'county'} plowed · ${fmt$(lt.plowCost)} · roads open ${(lt.passability * 100).toFixed(0)}%`; }
     else { $('sWx').textContent = m >= 2 && m <= 3 ? '🌧 Thaw' : m >= 10 || m <= 1 ? '🌨 Cold' : '☀ Clear'; $('sWxS').textContent = lt.weatherMod ? `road wear ×${lt.weatherMod.toFixed(1)}` : 'Midwest climate'; }
-    $('sSt').textContent = st.incorporated ? 'City' : 'Township'; $('sSt').className = 'v ' + (st.incorporated ? 'good' : '');
-    $('sStS').textContent = st.incorporated ? `incorporated · ${st.millage} mills` : `unincorporated · ${st.tile.seed.type} · incorporate at ${cfg.INCORPORATION_POP}`;
+    $('sSt').textContent = st.takeover ? 'Takeover' : st.incorporated ? 'City' : 'Township'; $('sSt').className = 'v ' + (st.takeover ? 'bad' : st.incorporated ? 'good' : '');
+    $('sStS').textContent = st.takeover ? `county in control since month ${st.takeover.sinceTurn}` : st.incorporated ? `incorporated · ${st.millage} mills` : canIncorporate(st, cfg) ? 'eligible to incorporate — see Policy' : `unincorporated · incorporate at ${cfg.INCORPORATION_POP}`;
+    $('tBudget').classList.toggle('attn', st.turn % 12 === 0 && st.turn > 0 && !st.takeover);
 
-    // actions
-    $('endTurn').disabled = false; $('skipYear').disabled = false;
-    $('incorporate').hidden = !canIncorporate(st, cfg);
-    $('hint').textContent = st.incorporated
-      ? 'Property tax is now your revenue. Zoning happens on its own when demand and cash allow.'
-      : canIncorporate(st, cfg) ? 'Incorporating ends seed income from the land and switches you to property tax. Your call, your timing.'
-      : `Seed income of ${fmt$(st.tile.seed.income)}/mo carries you until there's a tax base.`;
+    $('banner').innerHTML = st.takeover ? `<div class="banner"><b>County takeover.</b> Since month ${st.takeover.sinceTurn} (${st.takeover.reason}). The county has cut operations to a maintenance floor, zeroed capital, raised millage to ${st.millage}, and furloughed your equipment.${st.takeover.sold.length ? ` Sold: ${st.takeover.sold.map(x => `${x.label} for ${fmt$(x.price)}`).join(', ')}.` : ''} You get control back when the balance is positive with ${cfg.TAKEOVER_EXIT_RESERVE} months of reserves.</div>` : '';
 
-    // equipment
-    const owned = st.assets.map(a => `<div class="card"><div class="kv"><span>${a.label.split(' — ')[1] ?? a.type}</span><b class="${cls(a.condition, 60, 30)}">${st.turn < a.arrivesTurn ? `arrives in ${a.arrivesTurn - st.turn} mo` : `cond ${a.condition.toFixed(0)}`}</b></div><div class="kv"><span>upkeep</span><b>${st.turn <= a.warrantyUntil ? `warranty ${a.warrantyUntil - st.turn} mo` : fmt$(a.maintNeed) + '/mo'}</b></div></div>`);
-    $('assets').innerHTML = owned.length ? owned.join('') : `<p style="color:var(--dim);margin:0 0 6px;font-size:14px">Nothing yet. The county plows your roads — slowly, and it bills you.</p>`;
-    $('bids').innerHTML = PLOW_BIDS.map(b => `<div class="bid"><div class="t">${b.label}</div><div class="d">${fmt$(b.price)} · condition ${b.condition} · upkeep ${fmt$(b.maintNeed)}/mo${b.warrantyTurns ? ` after ${b.warrantyTurns}-mo warranty` : ''} · arrives in ${b.deliveryTurns} mo</div><button class="ghost" data-bid="${b.id}" ${canAfford(st, b) ? '' : 'disabled'}>${canAfford(st, b) ? 'Buy' : 'Can’t afford'}</button></div>`).join('');
-    for (const btn of $('bids').querySelectorAll('button')) btn.addEventListener('click', () => replaceState(buyAsset(game.state, PLOW_BIDS.find(b => b.id === btn.dataset.bid))));
-
-    // finances
-    const out = outstandingPrincipal(st), dcap = debtCapacity(st, cfg), rm = reserveMonths(st);
-    $('finCard').innerHTML = `
-      <div class="kv"><span>Credit rating</span><b class="${gradeCls(st.credit.grade)}">${st.credit.grade} <span style="font-weight:400;color:var(--dim)">· ${st.credit.score}/100</span></b></div>
-      <div class="kv"><span>Reserves</span><b class="${cls(rm, 6, 3)}">${isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞'}</b></div>
-      <div class="kv"><span>Debt</span><b>${fmt$(out)}</b></div>
-      <div class="kv"><span>${st.incorporated ? 'Bond capacity' : 'County loan room'}</span><b>${fmt$(Math.max(0, dcap - out))}</b></div>
-      <div class="kv"><span>Debt service</span><b>${fmt$(annualDebtService(st) / 12)}/mo</b></div>
-      <div class="kv"><span>County base rate</span><b>${pct(st.county.baseRate)}</b></div>`;
-    const products = loanProducts(st, cfg);
-    const sel = $('loanProduct'); const prev = sel.value; sel.innerHTML = '';
-    for (const p of products) sel.append(new Option(`${p.label} · ${pct(p.rate)}`, p.id));
-    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
-    const previewLoan = () => {
-      const p = products.find(x => x.id === sel.value); const amt = +$('loanAmount').value;
-      if (!p) { $('loanPreview').innerHTML = ''; $('borrowBtn').disabled = true; return; }
-      const ok = amt > 0 && amt <= p.max + 0.5;
-      const pay = monthlyPayment(amt, p.rate, p.termTurns);
-      $('loanPreview').innerHTML = `<div class="kv"><span>Payment</span><b>${fmt$(pay)}/mo for ${p.termTurns / 12} yrs</b></div><div class="kv"><span>Total interest</span><b>${fmt$(pay * p.termTurns - amt)}</b></div><div class="kv"><span>Limit</span><b class="${ok ? '' : 'bad'}">${fmt$(p.max)}</b></div>`;
-      $('borrowBtn').disabled = !ok;
-    };
-    sel.onchange = previewLoan; $('loanAmount').oninput = previewLoan; previewLoan();
-    $('borrowBtn').onclick = () => { const p = products.find(x => x.id === sel.value); replaceState(borrow(game.state, p, +$('loanAmount').value)); };
-    $('borrowHint').textContent = st.incorporated
-      ? (st.credit.grade === 'F' ? 'Bond market is closed at F. The county still lends, at a penalty.' : 'Bonds are capped at 8.6% of assessed value. Grow the tax base to borrow more.')
-      : 'Townships get county loans only — flat caps, higher rates. Incorporate to issue bonds.';
-    $('notes').innerHTML = st.debt.map(d => `<div class="card" style="padding:8px 12px"><div class="kv"><span>${d.label}</span><b>${fmt$(d.principal)}</b></div><div class="kv"><span>${pct(d.rate)} · ${fmt$(d.payment)}/mo</span><b>${d.remainingTurns} mo left</b></div></div>`).join('');
-
-    // budget card
-    $('budgetCard').innerHTML = `
-      <div class="kv"><span>Public Works ops</span><b>${fmt$(st.budget.publicWorks.operations)}/yr</b></div>
-      <div class="kv"><span>Public Works capital</span><b>${fmt$(st.budget.publicWorks.capital)}/yr</b></div>
-      <div class="kv"><span>Services ops</span><b>${fmt$(st.budget.services.operations)}/yr</b></div>
-      <div class="kv"><span>Millage</span><b>${st.millage}</b></div>
-      <small style="margin-top:6px">Next review: ${12 - (st.turn % 12)} month${12 - (st.turn % 12) === 1 ? '' : 's'}</small>`;
-
-    // month card
     if (st.turn === 0) {
-      $('monthCard').innerHTML = `<h3>You've staked a claim</h3><p>One tract of farmland, one dirt road, ${st.lots.length} lots surveyed, and ${fmt$(st.treasury)} in the bank. Population: you. The land pays ${fmt$(st.tile.seed.income)} a month. It's ${MONTHS[cfg.FOUNDING_MONTH]}; winter is ${(10 - cfg.FOUNDING_MONTH + 12) % 12} months out.</p>`;
+      $('monthCard').innerHTML = `<h3>You've staked a claim</h3><p>One tract of farmland, one dirt road, ${st.lots.length} lots surveyed, and ${fmt$(st.treasury)} in the bank. Population: you. The land pays ${fmt$(st.tile.seed.income)} a month. It's ${MONTHS[cfg.FOUNDING_MONTH]}; winter is ${(10 - cfg.FOUNDING_MONTH + 12) % 12} months out. Set a budget, or just end the month and see what happens.</p>`;
     } else {
       const bits = [];
-      bits.push(`Revenue <b>${fmt$(lt.revenue)}</b>${lt.seedIncome ? ` (${fmt$(lt.seedIncome)} from the land)` : ''}, spent <b>${fmt$(lt.expenses)}</b>.`);
-      if (lt.snow) bits.push(`<span class="snow">Snow.</span> ${lt.plowedBy === 'county' ? 'The county plowed, eventually' : 'Your crew plowed'} — roads were open ${(lt.passability * 100).toFixed(0)}% of the month, ${fmt$(lt.plowCost)} for clearing.`);
+      bits.push(`Revenue <b>${fmt$(lt.revenue)}</b>${lt.seedIncome ? ` (${fmt$(lt.seedIncome)} from the land)` : ''}, spent <b>${fmt$(lt.expenses)}</b>${lt.debtService ? ` including ${fmt$(lt.debtService)} debt service` : ''}.`);
+      if (lt.snow) bits.push(`<span class="snow">Snow.</span> ${lt.plowedBy === 'county' ? 'The county plowed, eventually' : 'Your crew plowed'} — roads open ${(lt.passability * 100).toFixed(0)}% of the month, ${fmt$(lt.plowCost)} for clearing.`);
       if (lt.repairSpend > 0) bits.push(`Spent ${fmt$(lt.repairSpend)} of capital on repairs.`);
       if (lt.netMigration > 0) bits.push(`<b>${lt.netMigration}</b> new resident${lt.netMigration > 1 ? 's' : ''} moved in.`);
       if (lt.netMigration < 0) bits.push(`<span class="bad">${-lt.netMigration} resident${lt.netMigration < -1 ? 's' : ''} left.</span>`);
@@ -396,13 +389,16 @@
       if (lt.lotsCompleted) bits.push(`${lt.lotsCompleted} home${lt.lotsCompleted > 1 ? 's' : ''} finished and joined the tax rolls.`);
       if (lt.event?.type === 'storm') bits.push(`<span class="warn">A storm tore up ${lt.event.target}</span> (−${lt.event.damage} condition).`);
       if (lt.event?.type === 'grant') bits.push(`<span class="good">The county sent a ${fmt$(lt.event.amount)} grant.</span>`);
-      if (lt.debtService > 0) bits.push(`Debt service ${fmt$(lt.debtService)}.`);
-      if (st.credit.reviewedTurn === st.turn && st.turn) bits.push(`<b>Annual credit review: ${st.credit.grade}</b>${st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} — reserves ${st.credit.inputs.reserveMonths.toFixed(1)} mo, ${st.credit.inputs.deficitMonths} deficit month${st.credit.inputs.deficitMonths === 1 ? '' : 's'}, debt service ${(st.credit.inputs.debtServiceRatio * 100).toFixed(0)}% of revenue.`);
-      if (st.deficitStreak) bits.push(`<span class="bad">Treasury is negative — ${st.deficitStreak} month${st.deficitStreak > 1 ? 's' : ''} running.</span>`);
+      for (const e of st.log) if (e.turn === st.turn) {
+        if (e.type === 'county takeover') bits.push(`<span class="bad"><b>The county has taken over</b> (${e.reason}).</span>`);
+        if (e.type === 'asset sold by county') bits.push(`<span class="bad">The county sold your ${e.what} for ${fmt$(e.price)}.</span>`);
+        if (e.type === 'control returned') bits.push(`<span class="good"><b>Control returned</b> after ${e.after} months.</span> The county's budget stands until you adopt a new one.`);
+      }
+      if (st.credit.reviewedTurn === st.turn && st.turn) bits.push(`<b>Credit review: ${st.credit.grade}</b>${st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} — reserves ${st.credit.inputs.reserveMonths.toFixed(1)} mo, ${st.credit.inputs.deficitMonths} deficit month${st.credit.inputs.deficitMonths === 1 ? '' : 's'}, debt service ${(st.credit.inputs.debtServiceRatio * 100).toFixed(0)}% of revenue.`);
+      if (st.deficitStreak && !st.takeover) bits.push(`<span class="bad">Treasury is negative — ${st.deficitStreak} month${st.deficitStreak > 1 ? 's' : ''} running. County takeover at ${cfg.TAKEOVER_DEFICIT_MONTHS}.</span>`);
       $('monthCard').innerHTML = `<h3>${monthLabel(st.turn, cfg)}</h3><p>${bits.join(' ')}</p>`;
     }
 
-    // ledger
     const every = $('allRows').checked ? 1 : 12;
     let html = '<tr><th class="l">turn</th><th class="l">month</th><th>pop</th><th>desir</th><th>road</th><th>treasury</th><th>debt</th><th>cr</th><th>in/mo</th><th>out/mo</th><th>lots</th><th>homes</th><th class="l">notes</th></tr>';
     let carried = [];
@@ -410,26 +406,15 @@
       const l = r.lastTurn;
       if (l.event) carried.push(l.event.type);
       if (l.lotsZoned) carried.push('zoned');
-      for (const e of r.log) if (e.turn === r.turn && (e.type === 'borrowed' || e.type === 'purchase')) carried.push(e.type === 'borrowed' ? `borrowed ${fmt$(e.amount)}` : 'bought plow');
+      for (const e of r.log) if (e.turn === r.turn) { if (e.type === 'borrowed') carried.push(`borrowed ${fmt$(e.amount)}`); if (e.type === 'purchase') carried.push('bought plow'); if (e.type === 'county takeover') carried.push('TAKEOVER'); if (e.type === 'control returned') carried.push('control returned'); if (e.type === 'incorporated') carried.push('incorporated'); }
       if (r.turn % every && r.turn !== game.rows.length - 1) continue;
       const rd = r.infrastructure.reduce((s, i) => s + i.condition, 0) / r.infrastructure.length;
-      html += `<tr class="${r.incorporated ? 'inc' : ''} ${r.turn % 12 === 0 && r.turn ? 'year' : ''}"><td class="l">${r.turn}</td><td class="l">${r.turn ? monthLabel(r.turn, cfg) : '—'}</td><td>${r.population}</td><td>${r.desirability.toFixed(0)}</td><td>${rd.toFixed(0)}</td><td>${fmt$(r.treasury)}</td><td>${fmt$(r.debt.reduce((s, d) => s + d.principal, 0))}</td><td class="${gradeCls(r.credit.grade)}">${r.credit.grade}</td><td>${fmt$(l.revenue ?? 0)}</td><td>${fmt$(l.expenses ?? 0)}</td><td>${r.lots.length}</td><td>${r.lots.filter(x => x.state === 'occupied').length}</td><td class="l">${(l.snow ? '❄ ' : '') + carried.join(', ')}</td></tr>`;
+      html += `<tr class="${r.incorporated ? 'inc' : ''} ${r.turn % 12 === 0 && r.turn ? 'year' : ''}"><td class="l">${r.turn}</td><td class="l">${r.turn ? monthLabel(r.turn, cfg) : '—'}</td><td>${r.population}</td><td>${r.desirability.toFixed(0)}</td><td>${rd.toFixed(0)}</td><td class="${r.treasury < 0 ? 'bad' : ''}">${fmt$(r.treasury)}</td><td>${fmt$(r.debt.reduce((s, d) => s + d.principal, 0))}</td><td class="${gradeCls(r.credit.grade)}">${r.credit.grade}</td><td>${fmt$(l.revenue ?? 0)}</td><td>${fmt$(l.expenses ?? 0)}</td><td>${r.lots.length}</td><td>${r.lots.filter(x => x.state === 'occupied').length}</td><td class="l">${(l.snow ? '❄ ' : '') + (r.takeover ? '⚠ ' : '') + carried.join(', ')}</td></tr>`;
       carried = [];
     }
     $('out').innerHTML = html;
     $('out').parentElement.scrollTop = 1e9;
   }
-
-  // ── bench ─────────────────────────────────────────────────────────────────
-  $('run').addEventListener('click', () => {
-    const cfg = liveConfig(), rng = createRng(+$('seed').value);
-    let st = createTurnZero(scenarioBudget($('scenario').value), cfg);
-    const plowId = $('benchPlow').value; if (plowId && canAfford(st, PLOW_BIDS.find(b => b.id === plowId))) st = buyAsset(st, PLOW_BIDS.find(b => b.id === plowId));
-    const rows = [st];
-    for (let t = 0; t < +$('turns').value; t++) { st = resolveTurn(st, rng, cfg); if (st.turn % 12 === 0) st = annualReview(st, cfg, rng); if ($('autoInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st); }
-    game = { cfg, rng, state: st, rows };
-    render();
-  });
 
   renderConfig();
   found();

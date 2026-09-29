@@ -79,3 +79,20 @@ says *why*, so settled questions don't get re-litigated. Newest at the bottom.
   Revisit only if playtesting shows ties are rare or the levers are thin.
 - **A map is a picture until it's a decision.** The 3×3 founding screen needs ≥3 seed
   types that behave differently before it's worth drawing.
+
+## 2026-09-29 (afternoon) — Fiscal loop closes
+- **Borrowing is a first-class action with a payment preview; credit review runs outside
+  `resolveTurn`.** So the review result can be shown on the budget screen, and so the sim's
+  turn stays pure.
+- **County takeover is an eighth phase, not an event.** It has to run every turn to apply
+  austerity and check for exit. Trigger is *either* ten deficit months *or* a balance below
+  three months of opex, so a fast collapse doesn't get ten months of grace.
+- **Takeover reaches add-ons, never base assets.** SimCity's plop-then-upgrade shape: the
+  station stays, the extra trucks and helipad get furloughed and sold. Assets carry a tier.
+- **The county's austerity budget stands after control returns until the player adopts a
+  new one.** The humiliation has a tail; the player has to actively rebuild.
+- **Modal layout.** Toolbar of tools (Budget, Loans, Buy, Policy, Town), stat tiles that
+  open their own detail, one narrative card, yearly ledger. No permanent side panel: tools
+  will keep accumulating and a sidebar doesn't scale. Config stays behind a gear.
+- **Mid-year budget changes allowed for now.** The annual lock arrives with board meetings
+  and should be an incorporation effect, not a rule imposed at turn zero.
