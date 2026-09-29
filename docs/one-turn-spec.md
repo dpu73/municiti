@@ -471,6 +471,23 @@ building permit ($/home started); both feed the tax-burden input via `FEE_BURDEN
 Loan products are offer tiles with term, rate, limit, payment on a chosen amount, total
 interest. Owned vehicles are the vehicles Street Mode drives — same object, both layers.
 
+## 12d. Policies — designed, not built (2026-09-29)
+
+**Shape.** A policy is data, not code: `{ id, kind: toggle|slider, cost (recurring),
+moves: <existing number>, secondOrder: <what bites if overdone>, requires: <department or
+era> }`. The Policy tool is a list of these. If a proposal has no existing number to move,
+it's parked until the number exists.
+
+| policy | kind | moves | second order | requires |
+|---|---|---|---|---|
+| Short-term rentals | allow + tax slider | share of housing converted to non-resident (tax ↑, capacity ↓) | tax too high → units sit empty; too low → nuisance input on desirability ("party neighborhoods") | Finance dept upgrade to tax them |
+| Data centers | allow / case-by-case / never | a building vacant > N months attracts a bid: assessed value ↑↑, jobs ≈ 0, power/water load, pollution input ↓ desirability | "never" → the building keeps sitting vacant and costing you; "case by case" → a board item | property lifecycle (vacancy) |
+| Public health campaign | slider | `SERVICE_NEED_PER_CAPITA` ↓ a little | cost scales with population | — |
+| Fire safety campaign | slider | storm/fire event damage ↓ | cost | events table |
+| Bike safety campaign | — | nothing yet | — | **parked** until traffic/accidents exist |
+
+Data centers are also the first entry on the late-game deals list (§14).
+
 ## 12c. Long horizon — eras, census, county (designed 2026-09-28, not scheduled)
 
 Nothing here enters the build until §11 is satisfied with the fiscal loop. Recorded so it

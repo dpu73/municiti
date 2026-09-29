@@ -117,3 +117,6 @@ says *why*, so settled questions don't get re-litigated. Newest at the bottom.
   plop-then-upgrade). Filed as design; built when the service triangle arrives.
 - **Millage moved from Budget to Finance › Taxes**, with fees beside it. Revenue levers
   live together; the budget is appropriations only.
+- **A policy is data with a fixed shape:** toggle or slider, recurring cost, one existing
+  number it moves, a second-order effect that bites if overdone. No number to move → parked
+  (bike safety). STR tax and data-center policy pass because both directions cost you.
