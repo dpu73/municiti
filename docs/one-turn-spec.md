@@ -419,7 +419,11 @@ The census is the scheduled moment for irreversible things: annexation, secessio
 sustained unhappiness, county-wide votes, mega-projects, regional transit.
 
 **County = 3×3 grid; 6–8 cells usable**, the rest water, preserve, mountain or canyon.
-A cell is a *settlement site*, not a city boundary. Two scales:
+A cell is a *settlement site*, not a city boundary. The 3×3 is the strategic layer (sites,
+seeds, connections); inside a site is the tactical layer — the parcel grid where zoning,
+roads and buildings live. The sim already has this shape: `tile` is one site; `lots` and
+`infrastructure` live inside it; the county is a list of sites. Inner grid resolution is a
+rendering question for later. Two scales of land:
 - *Parcels* (inside a cell): bought any time with money. Zoning batches already do this.
 - *Cells*: annexing a populated neighbor cell or town, or losing one to secession on
   sustained low desirability, happens only at the census by vote.
@@ -448,11 +452,14 @@ sci-fi). Four.
   `completionTurns = totalNeed / contributionRate × educationMod`, floored ~24–36 turns,
   capped ~60–72; at the cap the county finishes it and bills everyone.
 - *Free-rider rule (load-bearing):* contributors get the unlock at completion, at cost.
-  Non-contributors buy in later at a surcharge that grows with delay (~150% → 200%), or
-  not at all where engineering excluded them (no retroactive rail stop). Contribution
-  share sets vote weight on the *next* project — influence as computed history, not a
-  spendable resource. No "cooperation" stat unless playtesting proves these two levers
-  insufficient.
+  Non-contributors connect later by paying an **engineering study** (traffic study, rail
+  siting) — a diegetic cost, not a surcharge: one base cost per item type, drifting ~5%/yr
+  with noise (this is where inflation enters the game; nothing else inflates yet). Must
+  stay small next to a fair contribution share (~5–10%) so opting out remains a real
+  strategy for a town the project doesn't help. Some projects can't be joined late where
+  engineering excluded them (no retroactive rail stop).
+- *Vote:* one city, one vote. **Ties go to total contributed to county projects to date.**
+  No weighted voting, no "cooperation" resource, unless playtesting proves this thin.
 - *Unlock:* completion grants the capability county-wide **regardless of era** — a bus
   depot opens and every city can buy buses and stations. Era gates the catalog;
   mega-projects override the gate. This is how a lagging town leapfrogs.
