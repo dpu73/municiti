@@ -424,9 +424,26 @@ choosing a start year later than founding runs the same `resolveTurn` for every 
 the founding era to the start year — no separate generator. This is the payoff for a
 headless, deterministic sim.
 
-**Regional transit rule (parking lot):** bus goes where roads go; rail needs track and
-bridges; water transit needs a connected body of water (canal as a civic mega-project).
-A connectivity rule over the county grid — nothing to build until the grid exists.
+**Eras:** agricultural → industrial → modern → near-future (a logical next step, not
+sci-fi). Four.
+
+**Mega-projects (census cadence).**
+- *Vote:* one proposal wins at the census, Civ-style (weighting TBD: per-city vs per-capita).
+- *Engineering phase:* fixed length; sets specifics — route, capacity, which cities get
+  stations; a route crossing water adds bridges and cost.
+- *Construction phase:* each city contributes money per year (AI towns by policy).
+  `completionTurns = totalNeed / contributionRate × educationMod`, floored ~24–36 turns,
+  capped ~60–72; at the cap the county finishes it and bills everyone.
+- *Free-rider rule (load-bearing):* cities that fund their share get the unlock at
+  completion, at cost; laggards get it later / at a surcharge / lose a vote. Without this
+  the rational move is to contribute nothing and the project is a cutscene.
+- *Unlock:* completion grants the capability county-wide **regardless of era** — a bus
+  depot opens and every city can buy buses and stations. Era gates the catalog;
+  mega-projects override the gate. This is how a lagging town leapfrogs.
+
+**Regional transit connectivity:** bus goes where roads go; rail needs track and bridges;
+water transit needs a connected body of water (canal as a mega-project). Every city must
+connect to at least one other by some mode — a connected graph, not a complete one.
 
 **Selection flow (parking lot):** region (climate) → county (map) → start era. One preset
 map first; map builder is far future.
