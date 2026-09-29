@@ -3,6 +3,8 @@
 
 export const config = Object.freeze({
   // Turn zero
+  CLIMATE: 'midwest',
+  FOUNDING_MONTH: 3,            // April — first winter arrives at turn 8
   START_TREASURY: 50_000,
   START_LOTS: 12,
   LOT_CAPACITY: 3,              // people per single-family lot
@@ -16,6 +18,15 @@ export const config = Object.freeze({
   BASE_DECAY: 0.5,              // condition points per month, fully funded, weatherMod 1
   USAGE_WEIGHT: 0.5,            // full occupancy multiplies wear by (1 + this)
   ROAD_MAINT_NEED: 400,         // $/month to fully fund one road segment
+  ROAD_BUILD_COST: 15_000,      // one new segment, built with each zoning batch
+
+  // Snow (spec §12b)
+  COUNTY_PLOW_COST: 900,        // $ per road segment per full-snow month; always available
+  COUNTY_PLOW_LAG: 0.5,         // fraction of a snowy month the county leaves roads unplowed
+  OWN_PLOW_LAG: 0.1,            // same, with your own plow
+  PLOW_CAPACITY: 6,             // road segments one plow can keep clear
+  PLOW_OPEX: 700,               // $ fuel + driver per plow per full-snow month
+  PLOW_WEAR: 3,                 // condition points per plow per full-snow month
   REPAIR_COST_PER_POINT: 150,   // $ of capital to restore one condition point
 
   // Desirability

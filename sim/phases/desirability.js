@@ -9,9 +9,11 @@ export function desirability(state, config) {
     ? 100
     : clamp((state.budget.services.operations ?? 0) / serviceNeed, 0, 1) * 100;
 
-  const infra = state.infrastructure.length === 0
+  // Road condition, discounted by how much of the month roads were snowed shut.
+  const meanCondition = state.infrastructure.length === 0
     ? 50
     : state.infrastructure.reduce((s, i) => s + i.condition, 0) / state.infrastructure.length;
+  const infra = meanCondition * (state.lastTurn.passability ?? 1);
 
   const taxBurden = 100 - clamp(state.millage / config.MILLAGE_REF * 50, 0, 100);
 

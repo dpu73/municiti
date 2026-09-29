@@ -9,6 +9,9 @@
 import { createTurnZero } from './state.js';
 import { createRng } from './rng.js';
 import { resolveTurn, canIncorporate, incorporate } from './resolveTurn.js';
+import { PLOW_BIDS, buyAsset } from './actions.js';
+import { MONTHS, monthIndex } from './climate.js';
+import { config } from './config.js';
 
 export const SCENARIOS = {
   // Balanced: roads fully maintained ($400/mo) + modest repair capital, services for ~15 people.
@@ -23,12 +26,13 @@ export const SCENARIOS = {
   potholes: { publicWorks: { operations: 1_200, capital: 0 }, services: { operations: 6_000, capital: 0 }, millage: 8 },
 };
 
-export function runScenario({ scenario = 'balanced', turns = 120, seed = 1, autoIncorporate = true } = {}) {
+export function runScenario({ scenario = 'balanced', turns = 120, seed = 1, autoIncorporate = true, plow = null } = {}) {
   const s = SCENARIOS[scenario];
   if (!s) throw new Error(`unknown scenario "${scenario}" — options: ${Object.keys(SCENARIOS).join(', ')}`);
 
   const rng = createRng(seed);
   let state = createTurnZero({ budget: { publicWorks: s.publicWorks, services: s.services }, millage: s.millage });
+  if (plow) state = buyAsset(state, PLOW_BIDS.find(b => b.id === plow));
   const history = [state];
 
   for (let t = 0; t < turns; t++) {
@@ -46,7 +50,7 @@ const pad = (v, w) => String(v).padStart(w);
 
 export function printTable(history, every = 6) {
   console.log(
-    pad('turn', 4), pad('pop', 4), pad('des', 5), pad('road', 5), pad('treasury', 11),
+    pad('turn', 4), pad('mon', 4), pad('pop', 4), pad('des', 5), pad('road', 5), pad('treasury', 11),
     pad('rev/mo', 8), pad('exp/mo', 8), pad('lots', 4), pad('occ', 3), pad('bld', 3), pad('def', 3), ' inc  event',
   );
   for (const st of history) {
@@ -56,10 +60,11 @@ export function printTable(history, every = 6) {
     const bld = st.lots.filter(l => l.state === 'construction').length;
     const road = st.infrastructure[0]?.condition ?? 0;
     console.log(
-      pad(st.turn, 4), pad(st.population, 4), pad(st.desirability.toFixed(1), 5), pad(road.toFixed(0), 5),
+      pad(st.turn, 4), pad(st.turn ? MONTHS[monthIndex(st.turn, config)] : '—', 4), pad(st.population, 4), pad(st.desirability.toFixed(1), 5), pad(road.toFixed(0), 5),
       pad(fmt$(st.treasury), 11), pad(fmt$(lt.revenue ?? 0), 8), pad(fmt$(lt.expenses ?? 0), 8),
       pad(st.lots.length, 4), pad(occ, 3), pad(bld, 3), pad(st.deficitStreak, 3),
-      st.incorporated ? '  ✓  ' : '     ', lt.event ? lt.event.type : '',
+      st.incorporated ? '  ✓  ' : '     ',
+      (lt.snow ? `❄${lt.plowedBy} ` : '') + (lt.event ? lt.event.type : ''),
     );
   }
 }
@@ -74,6 +79,7 @@ if (isMain) {
     scenario: get('--scenario', 'balanced'),
     turns: Number(get('--turns', 120)),
     seed: Number(get('--seed', 1)),
+    plow: get('--plow', null),
   };
   console.log(`\nMuniCity sim — scenario: ${opts.scenario}, turns: ${opts.turns}, seed: ${opts.seed}\n`);
   const history = runScenario(opts);

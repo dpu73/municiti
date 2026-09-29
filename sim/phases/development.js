@@ -20,8 +20,11 @@ export function development(state, config) {
 
   // Zoning policy: out of vacant land + demand + can afford it → zone a batch.
   if (demand && state.policy.autoZone && !state.lots.some(l => l.state === 'vacant')) {
-    const cost = config.LOT_BATCH * config.LOT_ZONING_COST;
+    const cost = config.LOT_BATCH * config.LOT_ZONING_COST + config.ROAD_BUILD_COST;
     if (state.treasury >= cost) {
+      state.infrastructure.push({
+        id: `road-${state.infrastructure.length}`, type: 'road', condition: 100, maintNeed: config.ROAD_MAINT_NEED,
+      });
       for (let i = 0; i < config.LOT_BATCH; i++) {
         state.lots.push({
           id: `lot-${state.lots.length}`,
@@ -35,7 +38,7 @@ export function development(state, config) {
       state.treasury -= cost;
       state.lastTurn.expenses += cost;
       zoned = config.LOT_BATCH;
-      state.log.push({ turn: state.turn, type: 'zoned', lots: zoned, cost });
+      state.log.push({ turn: state.turn, type: 'zoned', lots: zoned, road: 1, cost });
     }
   }
 

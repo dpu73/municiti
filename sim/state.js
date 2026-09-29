@@ -43,9 +43,11 @@ export function createTurnZero(decisions, config = defaultConfig) {
     millage: decisions.millage ?? config.DEFAULT_MILLAGE,
     budget,
     tile: {
-      weatherMod: 1.0,
+      climate: config.CLIMATE,
+      weatherMod: 1.0,          // set each turn from the climate profile
       seed: { type: 'farmland', income: config.SEED_INCOME },
     },
+    assets: [],                 // vehicles and equipment you own (spec §12b)
     infrastructure: [
       { id: 'road-0', type: 'road', condition: 100, maintNeed: config.ROAD_MAINT_NEED },
     ],
