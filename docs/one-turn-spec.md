@@ -402,6 +402,35 @@ both layers.
 **Assets.** `{ type, condition, maintNeed, opex, lifespanTurns, warrantyTurns }`. Owned
 vehicles are the vehicles Street Mode drives — same object, both layers.
 
+## 12c. Long horizon — eras, census, county (designed 2026-09-28, not scheduled)
+
+Nothing here enters the build until §11 is satisfied with the fiscal loop. Recorded so it
+doesn't decay into vibes.
+
+**Eras = constants as a timeline.** Start year is a config value; the calendar advances
+with turns. Constants that should vary by era (all already in `config.js`):
+`BUILD_TURNS` ↓, `LOT_ZONING_COST` ↑ (land scarcity), `SERVICE_NEED_PER_CAPITA` ↑ (living
+standards), pollution tolerance ↓, power/water availability ↑, asset catalog availability.
+Pick ~4 eras by what changes mechanically; the year is cosmetic within an era. Mild
+anachronism is acceptable. Assets keep their era's visual until replaced (`boughtTurn`).
+
+**Three nested cadences.** Month → year (budget, credit review) → **decade (census)**.
+The census is the scheduled moment for irreversible things: annexation, secession on
+sustained unhappiness, county-wide votes, mega-projects, regional transit.
+
+**County = 3×3 grid of settlement sites.** Neighbors are municipalities run by policy
+functions (the bench's `budgetPolicy` with personalities) in lockstep resolution. **Pre-sim:**
+choosing a start year later than founding runs the same `resolveTurn` for every site from
+the founding era to the start year — no separate generator. This is the payoff for a
+headless, deterministic sim.
+
+**Regional transit rule (parking lot):** bus goes where roads go; rail needs track and
+bridges; water transit needs a connected body of water (canal as a civic mega-project).
+A connectivity rule over the county grid — nothing to build until the grid exists.
+
+**Selection flow (parking lot):** region (climate) → county (map) → start era. One preset
+map first; map builder is far future.
+
 ## 13. Build order
 
 0. **Debug panel groundwork** — `config` becomes defaults + a runtime override layer
