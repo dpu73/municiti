@@ -15,7 +15,8 @@ export function desirability(state, config) {
     : state.infrastructure.reduce((s, i) => s + i.condition, 0) / state.infrastructure.length;
   const infra = meanCondition * (state.lastTurn.passability ?? 1);
 
-  const taxBurden = 100 - clamp(state.millage / config.MILLAGE_REF * 50, 0, 100);
+  const feesPerCapita = (state.fees?.sticker ?? 0) + (state.fees?.permit ?? 0) * 0.1;   // permits are one-off; light weight
+  const taxBurden = 100 - clamp(state.millage / config.MILLAGE_REF * 50 + feesPerCapita / config.FEE_BURDEN_REF * 25, 0, 100);
 
   const safety = serviceQuality;   // stub until police is its own department
   const amenities = 50;            // stub until parks exist

@@ -443,15 +443,33 @@ path sums over speed-weighted segments, so a neglected road makes the fire truck
 in the table as a service-quality penalty, in Street Mode as the drive itself. One number,
 both layers.
 
-**Assets — built v0.5, `sim/catalog.js`.** Catalog is categories → items → up to 3 offers.
-Every offer and every owned asset shows four numbers: **efficiency** (0–100, how well it
-does the job — a 65 plow clears 65% of what a 100 plow does, further discounted by
-condition), **condition** (falls `ASSET_AGE_DECAY`/mo from age, halved by a mechanic, plus
-use; capital repairs restore it), **expected life** (`lifespanTurns`; past it, upkeep ×2),
-and **cost** (price, upkeep after warranty, and what financing runs per month at today's
-best rate). Vehicles require a **Public Works yard** (base building: gravel lot holds 2, no
-mechanic; garage holds 4, has a mechanic). The yard is the seed of city hall. Owned
-vehicles are the vehicles Street Mode drives — same object, both layers.
+**Assets — built v0.6, `sim/catalog.js`.** Catalog is categories → items → up to 3 offers.
+**One number rules an asset: condition (0–100).** It is the efficiency (a 60 plow clears
+60% of what a 100 plow does); below `OUT_OF_SERVICE_BELOW` (25) the unit is down for the
+month. Condition falls `ASSET_AGE_DECAY`/mo from age (halved by a mechanic) plus use;
+Public Works capital repairs it, worst-first, alongside roads. Past `lifespanTurns` upkeep
+doubles. Offers differ on price, condition on delivery, life, upkeep, warranty, delivery;
+each shows what financing runs per month at today's best rate.
+
+**The yard** comes free with the land (surface by climate: gravel, stone, sand…). It starts
+with **1 vehicle slot**; yard upgrades (pad, pole barn with mechanic, fence & fuel — each
+once) add one each, up to `YARD_SLOTS_TOWNSHIP` (4). **Incorporation builds a town hall at
+the yard** (base, $200/mo upkeep) and adds 2 slots up to `YARD_SLOTS_CITY` (6). Township
+vehicles: a **road truck** (patch crew; capital repairs go `ROAD_TRUCK_REPAIR_BONUS` further)
+and the **snowplow**. Base assets are never touched by a takeover.
+
+*Departments (designed, not built):* a specialized building (fire station, PW garage,
+police) carries its own **upgrade slots** (dispatch, gym, helipad — each an add-on with a
+mechanical effect: response time, staffing, coverage) and **resource slots** (rigs,
+ambulances, specialized trucks). Town hall upgrades add *general* municipal vehicle slots
+(inspectors, animal control, health officer). A takeover reaches the upgrades and
+resources, never the building.
+
+**Finance (built v0.6): Taxes · Fees · Credit · Bonds/Loans.** Millage is a slider under
+Finance › Taxes (moved out of the budget). Fees: vehicle sticker ($/resident/yr) and
+building permit ($/home started); both feed the tax-burden input via `FEE_BURDEN_REF`.
+Loan products are offer tiles with term, rate, limit, payment on a chosen amount, total
+interest. Owned vehicles are the vehicles Street Mode drives — same object, both layers.
 
 ## 12c. Long horizon — eras, census, county (designed 2026-09-28, not scheduled)
 

@@ -1,7 +1,7 @@
 // Phase 3 — Weather, snow, degradation, repair. Spec §4, §12b
 import { clamp, occupancyFraction } from '../state.js';
 import { CLIMATES, monthIndex } from '../climate.js';
-import { hasMechanic } from '../catalog.js';
+import { hasMechanic, inService } from '../catalog.js';
 
 export function degradation(state, config) {
   // ── weather this month ─────────────────────────────────────────────────
@@ -13,12 +13,12 @@ export function degradation(state, config) {
 
   // ── snow: who plows, what it costs, how long roads sit closed ─────────
   const roads = state.infrastructure.filter(i => i.type === 'road');
-  const plows = state.assets.filter(a => a.type === 'plow' && state.turn >= a.arrivesTurn && a.condition > 0 && !a.idled);
+  const plows = state.assets.filter(a => a.type === 'plow' && inService(state, a));
   let passability = 1, plowCost = 0, plowedBy = 'none';
 
   if (snow > 0 && roads.length) {
-    // Each plow's contribution: its efficiency, discounted by condition.
-    const plowPower = plows.reduce((s, p) => s + (p.efficiency / 100) * (0.5 + 0.5 * p.condition / 100), 0);
+    // Condition is efficiency: a 60 plow clears 60% of what a 100 plow does.
+    const plowPower = plows.reduce((s, p) => s + p.condition / 100, 0);
     const coverage = clamp(plowPower * config.PLOW_CAPACITY / roads.length, 0, 1);
     const ownCost = plows.length * config.PLOW_OPEX * snow;
     const countyCost = roads.length * (1 - coverage) * config.COUNTY_PLOW_COST * snow;
@@ -50,6 +50,8 @@ export function degradation(state, config) {
 
   // ── repair: monthly capital allowance, worst-first, charged as used ────
   let allowance = (state.budget.publicWorks.capital ?? 0) / 12;
+  const truck = state.assets.some(a => a.type === 'road-truck' && inService(state, a));
+  const costPerPoint = config.REPAIR_COST_PER_POINT / (truck ? 1 + config.ROAD_TRUCK_REPAIR_BONUS : 1);
   let spent = 0;
   const repairable = [...state.infrastructure, ...state.assets.filter(a => state.turn >= a.arrivesTurn && !a.idled)]
     .sort((a, b) => a.condition - b.condition);
@@ -58,9 +60,10 @@ export function degradation(state, config) {
     if (allowance <= 0) break;
     const need = 100 - obj.condition;
     if (need <= 0) continue;
-    const points = Math.min(need, allowance / config.REPAIR_COST_PER_POINT);
+    const cpp = obj.maintNeed != null && obj.type == null ? costPerPoint : config.REPAIR_COST_PER_POINT; // truck helps roads, not itself
+    const points = Math.min(need, allowance / cpp);
     obj.condition += points;
-    const cost = points * config.REPAIR_COST_PER_POINT;
+    const cost = points * cpp;
     allowance -= cost;
     spent += cost;
   }
@@ -71,7 +74,8 @@ export function degradation(state, config) {
 
   Object.assign(state.lastTurn, {
     month: m, weatherMod, snow, passability, plowCost, plowedBy,
-    fundingRatio, decay, repairSpend: spent,
+    fundingRatio, decay, repairSpend: spent, roadTruck: truck,
+    outOfService: state.assets.filter(a => state.turn >= a.arrivesTurn && !a.idled && a.condition < config.OUT_OF_SERVICE_BELOW).map(a => a.id),
   });
   return state;
 }

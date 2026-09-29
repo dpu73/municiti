@@ -47,7 +47,9 @@ export function createTurnZero(decisions, config = defaultConfig) {
       weatherMod: 1.0,          // set each turn from the climate profile
       seed: { type: 'farmland', income: config.SEED_INCOME },
     },
-    assets: [],                 // vehicles and equipment you own (spec §12b)
+    yard: { surface: 'gravel' }, // comes free with the land; slots grow with upgrades and incorporation
+    assets: [],                 // vehicles, yard upgrades, buildings (spec §12b)
+    fees: { permit: config.PERMIT_FEE, sticker: config.STICKER_FEE },
     debt: [],                   // loans and bonds (spec §12)
     credit: { grade: 'B', score: 70, reviewedTurn: 0, inputs: null, previous: null },
     county: { baseRate: config.START_BASE_RATE },

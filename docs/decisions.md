@@ -108,3 +108,12 @@ says *why*, so settled questions don't get re-litigated. Newest at the bottom.
   bench measured nothing.
 - **Labels: End Month / End Fiscal Year; calendar in the header** with the fiscal year as
   twelve dots, snow months tinted. Light/dark toggle, remembered per browser.
+- **Efficiency and condition merged into one number.** Two numbers on every tile were one
+  too many; condition *is* how well it works and, below 25, whether it works at all.
+- **The yard is free and comes with the land; incorporation builds the town hall on it.**
+  Slots are the scarce thing (1 → 4 as a township, 6 as a city), not the building. Gives
+  incorporation a second visible effect and starts the city-hall growth line.
+- **Departments are buildings with upgrade slots and resource slots** (SimCity's
+  plop-then-upgrade). Filed as design; built when the service triangle arrives.
+- **Millage moved from Budget to Finance › Taxes**, with fees beside it. Revenue levers
+  live together; the budget is appropriations only.

@@ -54,6 +54,7 @@ export function development(state, config) {
     }
   }
 
+  state.pendingPermits = started * (state.fees?.permit ?? 0);
   state.lastTurn.lotsZoned = zoned;
   state.lastTurn.lotsStarted = started;
   state.lastTurn.lotsCompleted = completed;

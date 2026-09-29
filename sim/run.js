@@ -9,7 +9,7 @@
 import { createTurnZero } from './state.js';
 import { createRng } from './rng.js';
 import { resolveTurn, canIncorporate, incorporate } from './resolveTurn.js';
-import { PLOW_BIDS, buyAsset } from './actions.js';
+import { buyAsset } from './actions.js';
 import { annualReview, loanProducts, borrow } from './finance.js';
 import { MONTHS, monthIndex } from './climate.js';
 import { config } from './config.js';
@@ -35,7 +35,7 @@ export function runScenario({ scenario = 'balanced', turns = 120, seed = 1, auto
   const founding = { budget: { publicWorks: { ...s.publicWorks }, services: { ...s.services } }, millage: s.millage };
   let state = createTurnZero(structuredClone(founding));
   if (loan) state = borrow(state, loanProducts(state, config).find(p => p.id === 'county-long'), loan);
-  if (plow) { state = buyAsset(state, 'yard-lot', config); state = buyAsset(state, `plow-${plow}`, config); }
+  if (plow) state = buyAsset(state, `plow-${plow}`, config);
   const history = [state];
 
   for (let t = 0; t < turns; t++) {

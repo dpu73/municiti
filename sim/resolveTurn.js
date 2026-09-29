@@ -44,6 +44,7 @@ export function canIncorporate(state, config = defaultConfig) {
 export function incorporate(state) {
   const next = structuredClone(state);
   next.incorporated = true;
+  next.assets.push({ id: 'town-hall', type: 'town-hall', tier: 'base', label: 'Town hall', condition: 100, lifespanTurns: 1200, maintNeed: 200, price: 0, slot: 0, mechanic: false, warrantyUntil: next.turn, arrivesTurn: next.turn, boughtTurn: next.turn, idled: false });
   next.log.push({ turn: next.turn, type: 'incorporated' });
   return next;
 }

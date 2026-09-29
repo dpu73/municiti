@@ -28,8 +28,17 @@ export const config = Object.freeze({
   PLOW_OPEX: 700,               // $ fuel + driver per plow per full-snow month
   PLOW_WEAR: 3,                 // condition points per plow per full-snow month
   ASSET_AGE_DECAY: 0.6,         // condition points per month just from age
-  MECHANIC_FACTOR: 0.5,         // age decay multiplier when a yard with a mechanic exists
+  MECHANIC_FACTOR: 0.5,         // age decay multiplier when a mechanic is on staff
   PAST_LIFE_UPKEEP_MULT: 2,     // upkeep multiplier once an asset outlives lifespanTurns
+  OUT_OF_SERVICE_BELOW: 25,     // condition under which a unit is down for the month
+  ROAD_TRUCK_REPAIR_BONUS: 0.4, // capital repairs go this much further with a road truck in service
+  YARD_SLOTS_TOWNSHIP: 4,
+  YARD_SLOTS_CITY: 6,
+
+  // Fees (spec §12, Finance › Fees)
+  PERMIT_FEE: 0,                // $ per home started
+  STICKER_FEE: 0,               // $ per resident per year
+  FEE_BURDEN_REF: 120,          // $/resident/yr of fees that reads as +25 tax burden
   REPAIR_COST_PER_POINT: 150,   // $ of capital to restore one condition point
 
   // Desirability

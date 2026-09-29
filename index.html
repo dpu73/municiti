@@ -80,6 +80,8 @@
 
   label { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; }
   label span { color:var(--dim); }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  .slider { margin:8px 0 12px; } .slider .top { display:flex; justify-content:space-between; } .slider .top b { font-size:18px; }
   input[type=number], select { width:120px; background:var(--input); color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:6px 8px; font:inherit; font-size:15px; text-align:right; }
   input.dirty { border-color:var(--warn); }
   input:disabled, select:disabled { opacity:.5; }
@@ -128,7 +130,7 @@
   <span class="date" id="date" hidden>Founding day</span>
   <div class="tools">
     <button class="ghost" data-tool="budget" id="tBudget">Budget</button>
-    <button class="ghost" data-tool="finance">Loans</button>
+    <button class="ghost" data-tool="finance">Finance</button>
     <button class="ghost" data-tool="buy">Buy</button>
     <button class="ghost" data-tool="policy">Policy</button>
     <button class="ghost" data-tool="town">Town</button>
@@ -182,8 +184,9 @@
   import { createTurnZero } from './sim/state.js';
   import { createRng } from './sim/rng.js';
   import { resolveTurn, canIncorporate, incorporate } from './sim/resolveTurn.js';
-  import { buyAsset, adoptBudget } from './sim/actions.js';
-  import { CATALOG, findOffer, purchaseBlocker, vehicleSlots, hasMechanic } from './sim/catalog.js';
+  import { buyAsset, adoptBudget, setTaxes } from './sim/actions.js';
+  import { CATALOG, findOffer, purchaseBlocker, vehicleSlots, hasMechanic, isVehicle, YARD_SURFACE } from './sim/catalog.js';
+  import { assessedValueTotal } from './sim/finance.js';
   import { CLIMATES, yearOf } from './sim/climate.js';
   import { annualReview, loanProducts, borrow, debtCapacity, outstandingPrincipal, reserveMonths, annualDebtService, monthlyPayment } from './sim/finance.js';
   import { MONTHS, monthIndex, monthLabel } from './sim/climate.js';
@@ -299,7 +302,7 @@
         : `<label><span>Public Works — operations /yr</span><input type="number" id="pwOps" step="100" value="${st.budget.publicWorks.operations}"></label>
            <label><span>Public Works — capital /yr</span><input type="number" id="pwCap" step="100" value="${st.budget.publicWorks.capital}"></label>
            <label><span>Services — operations /yr</span><input type="number" id="svcOps" step="100" value="${st.budget.services.operations}"></label>
-           <label><span>Millage (tax rate)</span><input type="number" id="millage" step="0.5" value="${st.millage}"></label>
+           ${kv('Tax rate', `${st.millage} mills <span style="color:var(--dim);font-weight:400">· set under Finance › Taxes</span>`)}
            <div class="card" style="margin-top:10px">${kv('Planned spend /yr', '<span id="bPlan"></span>')}${kv(st.turn ? 'vs last year\'s revenue' : 'vs seed income', '<span id="bVs"></span>')}</div>
            <button id="adopt">${yearEnd ? 'Adopt budget for Year ' + (st.turn / 12 + 1) : 'Adopt changes'}</button>
            <small>Operations are charged monthly. Capital is an allowance spent on repairs as needed. Services need about ${fmt$(need)}/yr for full quality at current population. ${yearEnd ? 'Close to keep last year\'s budget.' : st.incorporated ? 'Mid-year changes are allowed for now; the annual lock arrives with board meetings.' : ''}</small>`;
@@ -310,72 +313,107 @@
           const base = st.turn ? rev : st.tile.seed.income * 12;
           const plan = () => { const p = (+$('pwOps').value) + (+$('pwCap').value) + (+$('svcOps').value); $('bPlan').textContent = fmt$(p); const d = base - p; $('bVs').innerHTML = `<span class="${d < 0 ? 'bad' : 'good'}">${d < 0 ? '−' : '+'}${fmt$(Math.abs(d))}</span>`; };
           for (const id of ['pwOps', 'pwCap', 'svcOps']) $(id).oninput = plan; plan();
-          $('adopt').onclick = () => { const b = { publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value }, services: { operations: +$('svcOps').value, capital: 0 } }; closeModal(); act(s => adoptBudget(s, b, +$('millage').value)); };
+          $('adopt').onclick = () => { const b = { publicWorks: { operations: +$('pwOps').value, capital: +$('pwCap').value }, services: { operations: +$('svcOps').value, capital: 0 } }; closeModal(); act(s => adoptBudget(s, b)); };
         });
     },
 
-    finance() {
+    finance(tab) {
       const st = game.state, cfg = game.cfg;
+      tab = tab ?? tools._finTab ?? 'taxes'; tools._finTab = tab;
+      const locked = !!st.takeover;
       const out = outstandingPrincipal(st), dcap = debtCapacity(st, cfg), rm = reserveMonths(st), products = loanProducts(st, cfg);
-      const body = `<div class="cols"><div>
-        <div class="card"><h3>Standing</h3>${kv('Credit rating', `${st.credit.grade} · ${st.credit.score}/100`, gradeCls(st.credit.grade))}${kv('Reserves', isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞', cls(rm, 6, 3))}${kv('Debt outstanding', fmt$(out))}${kv(st.incorporated ? 'Bond capacity left' : 'County loan room', fmt$(Math.max(0, dcap - out)))}${kv('Debt service', fmt$(annualDebtService(st) / 12) + '/mo')}${kv('County base rate', pct(st.county.baseRate))}</div>
-        <div class="card"><h3>Notes outstanding</h3>${st.debt.length ? st.debt.map(d => kv(d.label, fmt$(d.principal)) + kv(`<span style="padding-left:12px">${pct(d.rate)} · ${fmt$(d.payment)}/mo</span>`, d.remainingTurns + ' mo left')).join('') : '<p>None.</p>'}</div>
-      </div><div>
-        <div class="card"><h3>Borrow</h3>
-          ${st.takeover ? '<p class="bad">No borrowing during a county takeover.</p>' : `
-          <label><span>Product</span><select id="loanProduct">${products.map(p => `<option value="${p.id}">${p.label} · ${pct(p.rate)}</option>`).join('')}</select></label>
-          <label><span>Amount</span><input type="number" id="loanAmount" step="5000" value="50000"></label>
-          <div id="loanPreview"></div>
-          <button id="borrowBtn" class="ghost">Borrow</button>`}
-          <small>${st.incorporated ? (st.credit.grade === 'F' ? 'Bond market is closed at F. The county still lends, at a penalty.' : 'Bonds are capped at 8.6% of assessed value — grow the tax base to borrow more.') : 'Townships get county loans only: flat caps, higher rates. Incorporate to issue bonds.'} Rating is reviewed each year end and sets the rate on new debt.</small>
-        </div></div></div>`;
-      openModal('Loans & credit', `${st.incorporated ? 'City' : 'Township'} of one · base rate ${pct(st.county.baseRate)} + ${pct(cfg.RATING_SPREAD[st.credit.grade])} for grade ${st.credit.grade}`, body, () => {
-        if (st.takeover) return;
-        const sel = $('loanProduct'), preview = () => {
-          const p = products.find(x => x.id === sel.value), amt = +$('loanAmount').value, ok = p && amt > 0 && amt <= p.max + 0.5;
-          const pay = p ? monthlyPayment(amt, p.rate, p.termTurns) : 0;
-          $('loanPreview').innerHTML = p ? kv('Payment', `${fmt$(pay)}/mo for ${p.termTurns / 12} yrs`) + kv('Total interest', fmt$(pay * p.termTurns - amt)) + kv('Limit', fmt$(p.max), ok ? '' : 'bad') : '';
-          $('borrowBtn').disabled = !ok;
+      const av = assessedValueTotal(st);
+      const tabs = { taxes: 'Taxes', fees: 'Fees', credit: 'Credit', bonds: st.incorporated ? 'Bonds & loans' : 'Loans' };
+      let body = '', mount = null;
+      if (tab === 'taxes') {
+        const taxAt = m => av * m / 1000 / 12;
+        body = `<div class="cols"><div>
+          <div class="slider"><div class="top"><span>Property tax (millage)</span><b id="mVal">${st.millage}</b></div><input type="range" id="mSlide" min="0" max="${cfg.AUSTERITY_MILLAGE_CAP}" step="0.5" value="${st.millage}" ${locked ? 'disabled' : ''}></div>
+          <div class="card">${kv('Assessed value on the rolls', fmt$(av))}${kv('Property tax at this rate', `<span id="mRev">${fmt$(taxAt(st.millage))}</span>/mo`)}${kv('Tax burden input', `<span id="mBurden"></span> <span style="color:var(--dim)">(50 at ${cfg.MILLAGE_REF} mills)</span>`)}${st.incorporated ? '' : kv('Seed income', fmt$(st.tile.seed.income) + '/mo', 'good')}</div>
+          ${locked ? '<p class="bad">The county sets taxes during a takeover.</p>' : '<button id="mApply">Set tax rate</button>'}
+          <small>Only completed homes are assessed. ${st.incorporated ? 'Property tax is your main revenue.' : 'Until you incorporate, the land pays you and property tax is small.'} Changes take effect next month.</small>
+        </div><div class="card"><h3>How taxes land</h3><p>Desirability reads tax burden inverted: at ${cfg.MILLAGE_REF} mills it contributes 50; at ${cfg.MILLAGE_REF * 2} mills it contributes 0. Fees add to the same burden. Raising millage buys revenue now and costs migration later.</p></div></div>`;
+        mount = () => {
+          const upd = () => { const m = +$('mSlide').value; $('mVal').textContent = m; $('mRev').textContent = fmt$(taxAt(m)); const fpc = st.fees.sticker + st.fees.permit * 0.1; $('mBurden').textContent = Math.round(100 - Math.min(100, m / cfg.MILLAGE_REF * 50 + fpc / cfg.FEE_BURDEN_REF * 25)); };
+          $('mSlide').oninput = upd; upd();
+          if ($('mApply')) $('mApply').onclick = () => act(s => setTaxes(s, { millage: +$('mSlide').value }));
         };
-        sel.onchange = preview; $('loanAmount').oninput = preview; preview();
-        $('borrowBtn').onclick = () => act(s => borrow(s, products.find(x => x.id === sel.value), +$('loanAmount').value));
-      });
+      } else if (tab === 'fees') {
+        body = `<div class="cols"><div>
+          <div class="slider"><div class="top"><span>Vehicle sticker, per resident per year</span><b>$<span id="sVal">${st.fees.sticker}</span></b></div><input type="range" id="sSlide" min="0" max="240" step="10" value="${st.fees.sticker}" ${locked ? 'disabled' : ''}></div>
+          <div class="slider"><div class="top"><span>Building permit, per home started</span><b>$<span id="pVal">${st.fees.permit}</span></b></div><input type="range" id="pSlide" min="0" max="5000" step="250" value="${st.fees.permit}" ${locked ? 'disabled' : ''}></div>
+          <div class="card">${kv('Sticker revenue', `<span id="sRev"></span>/mo at pop ${st.population}`)}${kv('Permit revenue', `<span id="pRev"></span> per ${cfg.ABSORPTION_RATE}-home month`)}${kv('Added tax burden', `<span id="fBurden"></span> pts`)}</div>
+          ${locked ? '' : '<button id="fApply">Set fees</button>'}
+          <small>Fees are small money that reads as tax burden. Permits only bite when homes are being built.</small>
+        </div><div class="card"><h3>Policies</h3><p>Standing rules live under <b>Policy</b> (auto-zoning, incorporation). More fees arrive with departments: inspections, licenses, utility hookups.</p></div></div>`;
+        mount = () => {
+          const upd = () => { const sv = +$('sSlide').value, pv = +$('pSlide').value; $('sVal').textContent = sv; $('pVal').textContent = pv; $('sRev').textContent = fmt$(st.population * sv / 12); $('pRev').textContent = fmt$(pv * cfg.ABSORPTION_RATE); $('fBurden').textContent = Math.round((sv + pv * 0.1) / cfg.FEE_BURDEN_REF * 25); };
+          $('sSlide').oninput = upd; $('pSlide').oninput = upd; upd();
+          if ($('fApply')) $('fApply').onclick = () => act(s => setTaxes(s, { sticker: +$('sSlide').value, permit: +$('pSlide').value }));
+        };
+      } else if (tab === 'credit') {
+        const i = st.credit.inputs;
+        body = `<div class="cols"><div class="card"><h3>Rating ${st.credit.grade} <span style="font-weight:400;color:var(--dim)">· ${st.credit.score}/100</span></h3>
+            ${i ? kv('Reserves (40 pts)', `${i.reserveMonths.toFixed(1)} mo`, cls(i.reserveMonths, 6, 3)) + kv('Deficit months (25 pts)', i.deficitMonths, i.deficitMonths ? 'bad' : 'good') + kv('Leverage (20 pts)', pct(i.leverage), cls(1 - i.leverage, 0.6, 0.3)) + kv('Debt service ÷ revenue (15 pts)', pct(i.debtServiceRatio), cls(1 - i.debtServiceRatio, 0.85, 0.7)) : '<p>First review at the end of Year 1.</p>'}
+            ${st.credit.probation ? '<p class="warn">On probation after a takeover: next review is capped at D.</p>' : ''}
+            <small>Reviewed every fiscal year end. Locked in between — so the books at review time are what count. Spread on new debt: A +0 · B +1 · C +2 · D +3.5 · F +6 (bond market closed).</small></div>
+          <div class="card"><h3>Right now</h3>${kv('Reserves', isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞', cls(rm, 6, 3))}${kv('Deficit streak', st.deficitStreak, st.deficitStreak ? 'bad' : 'good')}${kv('Debt', fmt$(out))}${kv('Capacity', fmt$(dcap))}${kv('Debt service', fmt$(annualDebtService(st) / 12) + '/mo')}${kv('County base rate', pct(st.county.baseRate))}</div></div>`;
+      } else {
+        const amt = tools._loanAmt ?? 50000;
+        const tiles = products.map(p => { const a = Math.min(amt, p.max); const pay = a > 0 ? monthlyPayment(a, p.rate, p.termTurns) : 0; const ok = a > 0 && !locked; return `<div class="offer"><div class="n">${p.label}</div><div class="price">${pct(p.rate)}</div>
+            <div class="line"><span>Term</span><b>${p.termTurns / 12} yrs</b></div><div class="line"><span>Limit</span><b>${fmt$(p.max)}</b></div>
+            <div class="line"><span>On ${fmt$(a)}</span><b>${fmt$(pay)}/mo</b></div><div class="line"><span>Total interest</span><b>${fmt$(pay * p.termTurns - a)}</b></div>
+            ${p.kind === 'county' ? '<div class="why">County: always available, worse terms</div>' : ''}${locked ? '<div class="why">No borrowing during takeover</div>' : a < amt ? `<div class="why">Capped at ${fmt$(p.max)}</div>` : ''}
+            <button class="${ok ? '' : 'ghost'}" data-loan="${p.id}" ${ok ? '' : 'disabled'}>${ok ? `Borrow ${fmt$(a)}` : 'Unavailable'}</button></div>`; }).join('');
+        body = `<div class="slider"><div class="top"><span>Amount</span><b>$<span id="lVal">${amt.toLocaleString('en-US')}</span></b></div><input type="range" id="lSlide" min="5000" max="${Math.max(50000, Math.ceil(Math.max(...products.map(p => p.max)) / 5000) * 5000)}" step="5000" value="${amt}"></div>
+          <div class="offers">${tiles}</div>
+          ${st.debt.length ? `<h3 style="margin:16px 0 8px">Notes outstanding</h3><div class="card">${st.debt.map(d => kv(d.label, `${fmt$(d.principal)} · ${pct(d.rate)} · ${fmt$(d.payment)}/mo · ${d.remainingTurns} mo left`)).join('')}</div>` : ''}
+          <small>${st.incorporated ? (st.credit.grade === 'F' ? 'Bond market is closed at F.' : `Bonds are capped at ${pct(cfg.DEBT_LIMIT_RATIO)} of assessed value (${fmt$(dcap)}). Grow the tax base to borrow more.`) : 'Townships get county loans only: flat caps, higher rates. Incorporate to issue bonds.'}</small>`;
+        mount = el => {
+          $('lSlide').oninput = () => { tools._loanAmt = +$('lSlide').value; tools.finance('bonds'); };
+          for (const b of el.querySelectorAll('[data-loan]')) b.onclick = () => { const p = products.find(x => x.id === b.dataset.loan); act(s => borrow(s, p, Math.min(amt, p.max))); };
+        };
+      }
+      openModal('Finance', `Treasury ${fmt$(st.treasury)} · reserves ${isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞'} · rating ${st.credit.grade} · debt ${fmt$(out)}`,
+        `<div class="tabs">${Object.entries(tabs).map(([id, l]) => `<button class="${id === tab ? 'on' : ''}" data-tab="${id}">${l}</button>`).join('')}</div>${body}`,
+        el => { for (const b of el.querySelectorAll('[data-tab]')) b.onclick = () => tools.finance(b.dataset.tab); if (mount) mount(el); });
     },
 
     buy(tab, itemId) {
       const st = game.state, cfg = game.cfg;
-      tab = tab ?? tools._buyTab ?? 'buildings'; tools._buyTab = tab;
-      const catId = CATALOG[tab] ? tab : 'buildings'; const cat = CATALOG[catId]; const itemIds = Object.keys(cat.items);
+      tab = tab ?? tools._buyTab ?? 'yard'; tools._buyTab = tab;
+      const catId = CATALOG[tab] ? tab : 'yard'; const cat = CATALOG[catId]; const itemIds = Object.keys(cat.items);
       itemId = itemId && cat.items[itemId] ? itemId : (tools._buyItem?.[catId] ?? itemIds[0]); (tools._buyItem ??= {})[catId] = itemId;
       const item = cat.items[itemId];
       const bestLoan = loanProducts(st, cfg).filter(p => p.max > 0).sort((a, b) => a.rate - b.rate)[0];
-      const meter = (label, v, warnBelow = 60, badBelow = 35) => `<div class="meter"><span>${label}</span><div class="bar"><i class="${v < badBelow ? 'bad' : v < warnBelow ? 'warn' : ''}" style="width:${v}%"></i></div><b>${Math.round(v)}</b></div>`;
+      const meter = (label, v, warnBelow = 60, badBelow = cfg.OUT_OF_SERVICE_BELOW) => `<div class="meter"><span>${label}</span><div class="bar"><i class="${v < badBelow ? 'bad' : v < warnBelow ? 'warn' : ''}" style="width:${v}%"></i></div><b>${Math.round(v)}</b></div>`;
       const offers = item.offers.map(o => {
-        const full = { ...o, catId, itemId, itemLabel: item.label, tier: item.tier };
+        const full = findOffer(o.id);
         const why = purchaseBlocker(st, full, cfg);
         const fin = bestLoan ? monthlyPayment(o.price, bestLoan.rate, Math.min(bestLoan.termTurns, Math.max(24, o.lifespanTurns))) : null;
         return `<div class="offer"><div class="n">${o.name}</div><div class="price">${fmt$(o.price)}</div>
-          ${meter('Efficiency', o.efficiency)}${meter('Condition', o.condition)}
+          ${meter('Condition', o.condition)}
           <div class="line"><span>Expected life</span><b>${(o.lifespanTurns / 12).toFixed(0)} yrs</b></div>
           <div class="line"><span>Upkeep</span><b>${fmt$(o.maintNeed)}/mo${o.warrantyTurns ? ` after ${o.warrantyTurns / 12} yr warranty` : ''}</b></div>
-          ${o.vehicleSlots ? `<div class="line"><span>Parks</span><b>${o.vehicleSlots} vehicles${o.mechanic ? ' · mechanic' : ''}</b></div>` : ''}
+          ${item.slot ? `<div class="line"><span>Adds</span><b>+${item.slot} vehicle slot${item.mechanic ? ' · mechanic' : ''}</b></div>` : ''}
           <div class="line"><span>Financed</span><b>${fin ? `≈ ${fmt$(fin)}/mo at ${pct(bestLoan.rate)}` : '—'}</b></div>
           <div class="line"><span>Delivery</span><b>${o.deliveryTurns} mo</b></div>
           ${why ? `<div class="why">${why}</div>` : ''}
           <button class="${why ? 'ghost' : ''}" data-offer="${o.id}" ${why ? 'disabled' : ''}>${why ? 'Unavailable' : 'Buy'}</button></div>`;
       }).join('');
-      const owned = st.assets.map(a => `<div class="offer"><div class="n">${a.label}</div>
-          ${st.turn < a.arrivesTurn ? `<div class="why">Arrives in ${a.arrivesTurn - st.turn} mo</div>` : a.idled ? '<div class="why">Furloughed by the county</div>' : ''}
-          ${meter('Efficiency', a.efficiency)}${meter('Condition', a.condition)}
-          <div class="line"><span>Age</span><b>${Math.max(0, st.turn - a.arrivesTurn)} / ${a.lifespanTurns} mo${st.turn - a.arrivesTurn > a.lifespanTurns ? ' <span class="bad">past life</span>' : ''}</b></div>
-          <div class="line"><span>Upkeep</span><b>${st.turn <= a.warrantyUntil ? `warranty, ${a.warrantyUntil - st.turn} mo` : fmt$(a.maintNeed * (st.turn - a.arrivesTurn > a.lifespanTurns ? cfg.PAST_LIFE_UPKEEP_MULT : 1)) + '/mo'}</b></div>
-          ${a.vehicleSlots ? `<div class="line"><span>Parks</span><b>${a.vehicleSlots}${a.mechanic ? ' · mechanic' : ''}</b></div>` : ''}</div>`).join('');
-      const slots = vehicleSlots(st), vehicles = st.assets.filter(a => CATALOG.vehicles.items[a.type]).length;
-      openModal('Buy', `${st.assets.length ? `${st.assets.length} owned · ${vehicles}/${slots} vehicle slots${hasMechanic(st) ? ' · mechanic on staff' : ''}` : 'Nothing owned yet.'} Condition falls with age${hasMechanic(st) ? ' (halved by your mechanic)' : ''} and use; Public Works capital repairs it.`,
+      const owned = st.assets.map(a => { const age = st.turn - a.arrivesTurn; return `<div class="offer"><div class="n">${a.label}</div>
+          ${st.turn < a.arrivesTurn ? `<div class="why">Arrives in ${a.arrivesTurn - st.turn} mo</div>` : a.idled ? '<div class="why">Furloughed by the county</div>' : a.condition < cfg.OUT_OF_SERVICE_BELOW ? '<div class="why">Out of service — needs repair</div>' : ''}
+          ${meter('Condition', a.condition)}
+          <div class="line"><span>Age</span><b>${Math.max(0, age)} / ${a.lifespanTurns} mo${age > a.lifespanTurns ? ' <span class="bad">past life</span>' : ''}</b></div>
+          <div class="line"><span>Upkeep</span><b>${st.turn <= a.warrantyUntil ? `warranty, ${a.warrantyUntil - st.turn} mo` : fmt$(a.maintNeed * (age > a.lifespanTurns ? cfg.PAST_LIFE_UPKEEP_MULT : 1)) + '/mo'}</b></div>
+          ${a.slot ? `<div class="line"><span>Adds</span><b>+${a.slot} slot${a.mechanic ? ' · mechanic' : ''}</b></div>` : ''}
+          <div class="line"><span>Tier</span><b>${a.tier === 'base' ? 'base — county can’t touch it' : 'add-on'}</b></div></div>`; }).join('');
+      const slots = vehicleSlots(st, cfg), vehicles = st.assets.filter(isVehicle).length;
+      openModal('Buy', `${YARD_SURFACE[st.tile.climate]} yard · ${vehicles}/${slots} vehicle slots${st.incorporated ? ' · town hall' : ` (max ${cfg.YARD_SLOTS_TOWNSHIP} until incorporation)`}${hasMechanic(st) ? ' · mechanic on staff' : ''}. Condition is efficiency; it falls with age${hasMechanic(st) ? ' (halved by your mechanic)' : ''} and use, and Public Works capital repairs it. Under ${cfg.OUT_OF_SERVICE_BELOW} a unit is out of service.`,
         `<div class="tabs">${Object.entries(CATALOG).map(([id, c]) => `<button class="${id === tab ? 'on' : ''}" data-tab="${id}">${c.label}</button>`).join('')}<button class="${tab === 'owned' ? 'on' : ''}" data-tab="owned">Owned (${st.assets.length})</button></div>
-         ${tab === 'owned' ? `<div class="offers">${owned || '<p>Nothing yet.</p>'}</div>` : `<div class="items">${itemIds.map(id => `<button class="${id === itemId ? '' : 'ghost'}" data-item="${id}">${cat.items[id].label}</button>`).join('')}</div><p style="color:var(--dim);margin:0 0 10px">${item.blurb}${cat.requires && !st.assets.some(a => a.type === cat.requires) ? ` <span class="warn">Needs a ${CATALOG.buildings.items[cat.requires].label} first.</span>` : ''}</p><div class="offers">${offers}</div>`}`,
+         ${tab === 'owned' ? `<div class="offers">${owned || '<p>Nothing yet. The yard itself came with the land.</p>'}</div>` : `<div class="items">${itemIds.map(id => `<button class="${id === itemId ? '' : 'ghost'}" data-item="${id}">${cat.items[id].label}</button>`).join('')}</div><p style="color:var(--dim);margin:0 0 10px">${item.blurb}</p><div class="offers">${offers}</div>`}`,
         el => {
-          for (const b of el.querySelectorAll('[data-tab]')) b.onclick = () => { if (b.dataset.tab === 'owned') { tools._buyTab = 'owned'; tools.buy('owned'); } else tools.buy(b.dataset.tab); };
+          for (const b of el.querySelectorAll('[data-tab]')) b.onclick = () => tools.buy(b.dataset.tab);
           for (const b of el.querySelectorAll('[data-item]')) b.onclick = () => tools.buy(catId, b.dataset.item);
           for (const b of el.querySelectorAll('[data-offer]')) b.onclick = () => act(s => buyAsset(s, b.dataset.offer, cfg));
         });
@@ -399,7 +437,7 @@
         <div class="card"><h3>Bench — hands off</h3>
           <label><span>Years</span><input type="number" id="bYears" value="10"></label>
           <label><span>Auto-incorporate</span><input type="checkbox" id="bInc" checked></label>
-          <label><span>Yard + plow at start</span><select id="bPlow"><option value="">none</option>${CATALOG.vehicles.items.plow.offers.map(o => `<option value="${o.id}">${o.name}</option>`).join('')}</select></label>
+          <label><span>Plow at start</span><select id="bPlow"><option value="">none</option>${CATALOG.vehicles.items.plow.offers.map(o => `<option value="${o.id}">${o.name}</option>`).join('')}</select></label>
           <label><span>Loan at start</span><input type="number" id="bLoan" value="0" step="10000"></label>
           <button id="bRun" class="ghost">Run with current settings</button><small>Runs the budget you'd found with, untouched, for the whole span. For seeing what a strategy does.</small></div></div>`;
       openModal('Town', 'Start over, or run the sim hands-off.', body, () => {
@@ -410,7 +448,7 @@
           const founding = { budget: structuredClone(st.budget), millage: st.millage };
           try {
             const loan = +$('bLoan').value; if (loan > 0) st = borrow(st, loanProducts(st, cfg).find(p => p.id === 'county-long'), loan);
-            const plowId = $('bPlow').value; if (plowId) { st = buyAsset(st, 'yard-lot', cfg); st = buyAsset(st, plowId, cfg); }
+            const plowId = $('bPlow').value; if (plowId) st = buyAsset(st, plowId, cfg);
           } catch (e) { alert(e.message); return; }
           const rows = [st];
           for (let t = 0; t < +$('bYears').value * 12; t++) {
@@ -475,13 +513,14 @@
       $('monthCard').innerHTML = `<h3>You've staked a claim</h3><p>One tract of farmland, one dirt road, ${st.lots.length} lots surveyed, and ${fmt$(st.treasury)} in the bank. Population: you. The land pays ${fmt$(st.tile.seed.income)} a month. It's ${MONTHS[cfg.FOUNDING_MONTH]}; winter is ${(10 - cfg.FOUNDING_MONTH + 12) % 12} months out. Set a budget, or just end the month and see what happens.</p>`;
     } else {
       const bits = [];
-      bits.push(`Revenue <b>${fmt$(lt.revenue)}</b>${lt.seedIncome ? ` (${fmt$(lt.seedIncome)} from the land)` : ''}, spent <b>${fmt$(lt.expenses)}</b>${lt.debtService ? ` including ${fmt$(lt.debtService)} debt service` : ''}.`);
+      bits.push(`Revenue <b>${fmt$(lt.revenue)}</b>${lt.seedIncome ? ` (${fmt$(lt.seedIncome)} from the land${lt.fees ? `, ${fmt$(lt.fees)} in fees` : ''})` : lt.fees ? ` (${fmt$(lt.fees)} in fees)` : ''}, spent <b>${fmt$(lt.expenses)}</b>${lt.debtService ? ` including ${fmt$(lt.debtService)} debt service` : ''}.`);
       if (lt.snow) bits.push(`<span class="snow">Snow.</span> ${lt.plowedBy === 'county' ? 'The county plowed, eventually' : lt.plowedBy === 'mixed' ? 'Your crew and the county plowed' : 'Your crew plowed'} — roads open ${(lt.passability * 100).toFixed(0)}% of the month, ${fmt$(lt.plowCost)} for clearing.`);
       if (lt.repairSpend > 0) bits.push(`Spent ${fmt$(lt.repairSpend)} of capital on repairs.`);
       if (lt.netMigration > 0) bits.push(`<b>${lt.netMigration}</b> new resident${lt.netMigration > 1 ? 's' : ''} moved in.`);
       if (lt.netMigration < 0) bits.push(`<span class="bad">${-lt.netMigration} resident${lt.netMigration < -1 ? 's' : ''} left.</span>`);
       if (lt.lotsZoned) bits.push(`Zoned ${lt.lotsZoned} more lots and built a road segment.`);
-      for (const a of st.assets) if (a.arrivesTurn === st.turn) bits.push(`Your <b>${a.label}</b> arrived.`);
+      for (const a of st.assets) if (a.arrivesTurn === st.turn && a.type !== 'town-hall') bits.push(`Your <b>${a.label}</b> arrived.`);
+      if (lt.outOfService?.length) bits.push(`<span class="warn">Out of service: ${lt.outOfService.join(', ')}.</span>`);
       if (lt.lotsStarted) bits.push(`${lt.lotsStarted} home${lt.lotsStarted > 1 ? 's' : ''} broke ground.`);
       if (lt.lotsCompleted) bits.push(`${lt.lotsCompleted} home${lt.lotsCompleted > 1 ? 's' : ''} finished and joined the tax rolls.`);
       if (lt.event?.type === 'storm') bits.push(`<span class="warn">A storm tore up ${lt.event.target}</span> (−${lt.event.damage} condition).`);
@@ -489,6 +528,7 @@
       for (const e of st.log) if (e.turn === st.turn) {
         if (e.type === 'county takeover') bits.push(`<span class="bad"><b>The county has taken over</b> (${e.reason}).</span>`);
         if (e.type === 'asset sold by county') bits.push(`<span class="bad">The county sold your ${e.what} for ${fmt$(e.price)}.</span>`);
+        if (e.type === 'incorporated') bits.push(`<span class="good"><b>Incorporated.</b></span> A town hall goes up at the yard; seed income ends; bonds open.`);
         if (e.type === 'control returned') bits.push(`<span class="good"><b>Control returned</b> after ${e.after} months.</span> The county's budget stands until you adopt a new one.`);
       }
       if (st.credit.reviewedTurn === st.turn && st.turn) bits.push(`<b>Credit review: ${st.credit.grade}</b>${st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} — reserves ${st.credit.inputs.reserveMonths.toFixed(1)} mo, ${st.credit.inputs.deficitMonths} deficit month${st.credit.inputs.deficitMonths === 1 ? '' : 's'}, debt service ${(st.credit.inputs.debtServiceRatio * 100).toFixed(0)}% of revenue.`);
