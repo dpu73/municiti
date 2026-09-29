@@ -267,6 +267,19 @@ before adding anything.
 
 ### Run log
 
+**2026-09-29, v0.3** — debt. 120 turns, seed 1, balanced, one road:
+
+| strategy | pop | treasury | rating |
+|---|---|---|---|
+| cash only | 27 | $98k | B |
+| $50k county loan, unspent | 27 | $94k | B |
+| $150k county loan → dealer plow | 31 | −$100k | F, 69 deficit months |
+
+**Finding:** the trap is live and the numbers are right. Also: 69 deficit months with no
+consequence beyond F means **county takeover (10 deficit months) must be un-parked** before
+tuning anything else, or deficit spending is free. Note the plow-owning town's roads rot:
+capital repairs now split between truck and asphalt. That's correct and should stay.
+
 **2026-09-28, v0.1** — 120 turns, seed 1, five turn-zero budgets:
 
 | scenario | pop | desirability | treasury |
@@ -304,9 +317,10 @@ doesn't exist yet. Build it before tuning any constants; the hoard is a symptom.
 
 ---
 
-## 12. Fiscal system — designed, not built (2026-09-28)
+## 12. Fiscal system — built v0.3 (2026-09-29), `sim/finance.js`
 
-Resolved in design; formulas are first drafts. Build order is §13. Nothing here runs yet.
+Debt, capacity, rate environment and the annual credit review run as below. Grants (§12, last
+paragraph) are still designed-not-built.
 
 **The three numbers.** `budget` is spending *authority* (annual appropriations — departments
 spend within it without asking). `treasury` is *reserves* — the money actually on hand,
@@ -338,12 +352,20 @@ with the tax base. This is the felt upside that pays for losing seed income.
 a point per year within `[RATE_FLOOR, RATE_CEILING]`). Products don't change; the price of
 money does, so *when* to borrow is a decision.
 
-**Credit rating — annual review, A–F.** Once every 12 turns, grade from three inputs
-already in state: `reserveMonths`, deficit months in the past year,
-`outstandingPrincipal / debtCapacity`, plus `debtServiceRatio`. Ladder: **A · B · C · D · F**.
-`rate(newBond) = countyBaseRate + SPREAD[grade]`. Locked until the next review, so
-cleaning up the books before review is a real move. **F closes the bond market:** county
-loans only, at a penalty spread. Rating also gates grant eligibility.
+**Credit rating — annual review, A–F** (`annualReview`, called by the runner at turn % 12,
+outside `resolveTurn` so it can be shown on the budget screen). Score 0–100:
+
+| input | points | full marks at |
+|---|---|---|
+| reserve months | 40 | ≥ `REVIEW_RESERVE_TARGET` (6) |
+| deficit months this year | 25 | 0; zero points at 5 |
+| leverage = outstanding / capacity | 20 | 0; zero at 1.0 |
+| debt service ratio (YTD) | 15 | ≤ 0.10; zero at 0.30 |
+
+A ≥ 85 · B ≥ 70 · C ≥ 55 · D ≥ 40 · F. Starts at B (unrated). `rate(new debt) =
+countyBaseRate + RATING_SPREAD[grade] (+ product spread)`. Locked until the next review.
+**F closes the bond market**; county loans continue at `COUNTY_F_PENALTY`.
+Rating also gates grant eligibility (not built).
 
 **Debt burden.** `debtServiceRatio = debtService / revenue`. First number on the annual
 budget screen; warning zone above ~0.15–0.20. **No separate "anger" stat.** Too much debt
@@ -483,9 +505,12 @@ map first; map builder is far future.
    annual rating, `debtServiceRatio` on the budget screen.
 3. ~~Seasons + Midwest climate~~ — done v0.2 (`sim/climate.js`).
 4. ~~Snowplow with county-auction vs dealer bids~~ — done v0.2 (`sim/actions.js`); cash only.
-5. **Debt** (item 2) is now blocking: the dealer plow and any real capital purchase need it.
-6. **Grants** — petition with match and restriction.
-7. **Remaining climates, contractors, departments** — per §12b.
+5. ~~Debt + credit review~~ — done v0.3 (`sim/finance.js`).
+6. **County takeover** — un-park: 10 consecutive deficit months → consequence. Without it
+   deficit spending is free.
+7. **Founding screen** — 3×3 grid, ≥3 seed types (§12c).
+8. **Grants** — petition with match and restriction.
+9. **Remaining climates, contractors, departments** — per §12b.
 
 Then re-run §11 and see whether allocating scarce money across competing needs is
 interesting in a table. If yes, it earns an `index.html`.

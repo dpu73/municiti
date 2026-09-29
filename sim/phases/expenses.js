@@ -16,12 +16,26 @@ export function expenses(state, config) {
     assetUpkeep += a.maintNeed;
   }
 
-  const total = opex + assetUpkeep;
+  // Debt service: level payments; principal shrinks; paid-off notes drop away.
+  let debtService = 0;
+  for (const d of state.debt) {
+    const interest = d.principal * d.rate / 12;
+    const toPrincipal = Math.min(d.principal, d.payment - interest);
+    d.principal -= toPrincipal;
+    d.remainingTurns -= 1;
+    debtService += interest + toPrincipal;
+  }
+  state.debt = state.debt.filter(d => d.principal > 0.5 && d.remainingTurns > 0);
+
+  const total = opex + assetUpkeep + debtService;
   state.treasury -= total;
   state.deficitStreak = state.treasury < 0 ? state.deficitStreak + 1 : 0;
+  if (state.treasury < 0) state.fiscal.deficitMonthsYTD += 1;
+  state.fiscal.debtServiceYTD += debtService;
 
   state.lastTurn.opex = opex;
   state.lastTurn.assetUpkeep = assetUpkeep;
+  state.lastTurn.debtService = debtService;
   state.lastTurn.expenses = total;   // later phases add to this
   return state;
 }

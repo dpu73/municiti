@@ -9,6 +9,7 @@ export function revenue(state, config) {
   const total = propertyTax + seedIncome;
 
   state.treasury += total;
+  state.fiscal.revenueYTD += total;
   state.lastTurn.propertyTax = propertyTax;
   state.lastTurn.seedIncome = seedIncome;
   state.lastTurn.revenue = total;

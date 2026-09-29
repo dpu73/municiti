@@ -48,6 +48,10 @@ export function createTurnZero(decisions, config = defaultConfig) {
       seed: { type: 'farmland', income: config.SEED_INCOME },
     },
     assets: [],                 // vehicles and equipment you own (spec §12b)
+    debt: [],                   // loans and bonds (spec §12)
+    credit: { grade: 'B', score: 70, reviewedTurn: 0, inputs: null, previous: null },
+    county: { baseRate: config.START_BASE_RATE },
+    fiscal: { deficitMonthsYTD: 0, revenueYTD: 0, debtServiceYTD: 0, lastYear: null },
     infrastructure: [
       { id: 'road-0', type: 'road', condition: 100, maintNeed: config.ROAD_MAINT_NEED },
     ],

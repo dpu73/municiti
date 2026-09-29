@@ -54,6 +54,21 @@ export const config = Object.freeze({
   // Incorporation
   INCORPORATION_POP: 25,
 
+  // Debt (spec §12)
+  DEBT_LIMIT_RATIO: 0.086,      // bonds capped at this share of assessed value (IL non-home-rule)
+  COUNTY_LOAN_SHORT_CAP: 50_000,
+  COUNTY_LOAN_LONG_CAP: 100_000,
+  COUNTY_SHORT_SPREAD: 0.010,   // county loans cost more than your own bonds
+  COUNTY_LONG_SPREAD: 0.020,
+  COUNTY_F_PENALTY: 0.030,      // county still lends at F, painfully
+  BOND_LONG_SPREAD: 0.005,
+  RATING_SPREAD: { A: 0.000, B: 0.010, C: 0.020, D: 0.035, F: 0.060 },
+  START_BASE_RATE: 0.040,
+  RATE_FLOOR: 0.020,
+  RATE_CEILING: 0.090,
+  RATE_DRIFT: 0.0075,           // max yearly move of the county base rate
+  REVIEW_RESERVE_TARGET: 6,     // months of opex for full marks
+
   // Events (d100)
   STORM_MAX_ROLL: 4,
   GRANT_MAX_ROLL: 6,

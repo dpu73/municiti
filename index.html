@@ -117,6 +117,17 @@
     <div id="assets"></div>
     <details id="shop"><summary>Buy a snowplow</summary><div id="bids"></div></details>
 
+    <h2>Finances</h2>
+    <div class="card" id="finCard"></div>
+    <details id="borrowBox"><summary>Borrow</summary>
+      <label><span>Product</span><select id="loanProduct"></select></label>
+      <label><span>Amount</span><input type="number" id="loanAmount" step="5000" value="50000"></label>
+      <div class="card" id="loanPreview"></div>
+      <button id="borrowBtn" class="ghost">Borrow</button>
+      <small id="borrowHint"></small>
+    </details>
+    <div id="notes"></div>
+
     <h2>Adopted budget</h2>
     <div class="card" id="budgetCard"></div>
 
@@ -176,12 +187,15 @@
   import { createRng } from './sim/rng.js';
   import { resolveTurn, canIncorporate, incorporate } from './sim/resolveTurn.js';
   import { PLOW_BIDS, buyAsset, canAfford, adoptBudget } from './sim/actions.js';
+  import { annualReview, loanProducts, borrow, debtCapacity, outstandingPrincipal, reserveMonths, annualDebtService, monthlyPayment } from './sim/finance.js';
   import { MONTHS, monthIndex, monthLabel } from './sim/climate.js';
   import { SCENARIOS } from './sim/run.js';
 
   const $ = id => document.getElementById(id);
   const fmt$ = n => (n < 0 ? '−' : '') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
   const cls = (v, warnBelow, badBelow) => v < badBelow ? 'bad' : v < warnBelow ? 'warn' : 'good';
+  const gradeCls = g => g === 'A' || g === 'B' ? 'good' : g === 'C' ? 'warn' : 'bad';
+  const pct = r => (r * 100).toFixed(1) + '%';
 
   // ── config overrides ──────────────────────────────────────────────────────
   const overrides = {};
@@ -225,6 +239,7 @@
   function step() {
     game.state = resolveTurn(game.state, game.rng, game.cfg);
     game.rows.push(game.state);
+    if (game.state.turn % 12 === 0) game.state = game.rows[game.rows.length - 1] = annualReview(game.state, game.cfg, game.rng);
     render();
     if (game.state.turn % 12 === 0) openBudget();
   }
@@ -269,6 +284,9 @@
         <div class="kv"><span>Road condition</span><b class="${cls(road, 70, 40)}">${road.toFixed(0)}</b> </div>
         <div class="kv"><span>Service quality</span><b class="${cls(sq, 70, 40)}">${sq.toFixed(0)}</b></div>
         <div class="kv"><span>Road maintenance need</span><b>${fmt$(maint)}/yr</b></div>
+        <div class="kv"><span>Debt outstanding</span><b>${fmt$(outstandingPrincipal(st))}</b></div>
+        <div class="kv"><span>Debt service</span><b class="${cls(1 - (st.credit.inputs?.debtServiceRatio ?? 0), 0.85, 0.7)}">${fmt$(annualDebtService(st))}/yr · ${((st.credit.inputs?.debtServiceRatio ?? 0) * 100).toFixed(0)}% of revenue</b></div>
+        <div class="kv"><span>Credit review</span><b class="${gradeCls(st.credit.grade)}">${st.credit.grade}${st.credit.previous && st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} · ${st.credit.score}/100</b></div>
         ${st.deficitStreak ? `<div class="kv"><span>Deficit</span><b class="bad">${st.deficitStreak} month(s)</b></div>` : ''}
       </div>`;
     $('pwOps').value = st.budget.publicWorks.operations; $('pwCap').value = st.budget.publicWorks.capital;
@@ -301,7 +319,7 @@
     $('sPop').textContent = st.population;
     $('sPopS').textContent = lt.netMigration != null ? `${lt.netMigration >= 0 ? '+' : ''}${lt.netMigration} this month · housing for ${cap}` : `housing for ${cap}`;
     $('sTre').textContent = fmt$(st.treasury); $('sTre').className = 'v ' + (st.treasury < 0 ? 'bad' : '');
-    $('sTreS').textContent = lt.revenue != null ? `${fmt$(lt.revenue)} in · ${fmt$(lt.expenses)} out` : `${fmt$(st.tile.seed.income)}/mo from the land`;
+    $('sTreS').innerHTML = (lt.revenue != null ? `${fmt$(lt.revenue)} in · ${fmt$(lt.expenses)} out` : `${fmt$(st.tile.seed.income)}/mo from the land`) + ` · rating <span class="${gradeCls(st.credit.grade)}">${st.credit.grade}</span>`;
     $('sDes').textContent = st.desirability.toFixed(0); $('sDes').className = 'v ' + cls(st.desirability, 55, 45);
     $('sDesS').textContent = lt.inputs ? `services ${lt.inputs.serviceQuality.toFixed(0)} · roads ${lt.inputs.infra.toFixed(0)} · taxes ${lt.inputs.taxBurden.toFixed(0)}` : '50 is neutral';
     const road = st.infrastructure.reduce((s, i) => s + i.condition, 0) / st.infrastructure.length;
@@ -327,6 +345,34 @@
     $('bids').innerHTML = PLOW_BIDS.map(b => `<div class="bid"><div class="t">${b.label}</div><div class="d">${fmt$(b.price)} · condition ${b.condition} · upkeep ${fmt$(b.maintNeed)}/mo${b.warrantyTurns ? ` after ${b.warrantyTurns}-mo warranty` : ''} · arrives in ${b.deliveryTurns} mo</div><button class="ghost" data-bid="${b.id}" ${canAfford(st, b) ? '' : 'disabled'}>${canAfford(st, b) ? 'Buy' : 'Can’t afford'}</button></div>`).join('');
     for (const btn of $('bids').querySelectorAll('button')) btn.addEventListener('click', () => replaceState(buyAsset(game.state, PLOW_BIDS.find(b => b.id === btn.dataset.bid))));
 
+    // finances
+    const out = outstandingPrincipal(st), dcap = debtCapacity(st, cfg), rm = reserveMonths(st);
+    $('finCard').innerHTML = `
+      <div class="kv"><span>Credit rating</span><b class="${gradeCls(st.credit.grade)}">${st.credit.grade} <span style="font-weight:400;color:var(--dim)">· ${st.credit.score}/100</span></b></div>
+      <div class="kv"><span>Reserves</span><b class="${cls(rm, 6, 3)}">${isFinite(rm) ? rm.toFixed(1) + ' mo' : '∞'}</b></div>
+      <div class="kv"><span>Debt</span><b>${fmt$(out)}</b></div>
+      <div class="kv"><span>${st.incorporated ? 'Bond capacity' : 'County loan room'}</span><b>${fmt$(Math.max(0, dcap - out))}</b></div>
+      <div class="kv"><span>Debt service</span><b>${fmt$(annualDebtService(st) / 12)}/mo</b></div>
+      <div class="kv"><span>County base rate</span><b>${pct(st.county.baseRate)}</b></div>`;
+    const products = loanProducts(st, cfg);
+    const sel = $('loanProduct'); const prev = sel.value; sel.innerHTML = '';
+    for (const p of products) sel.append(new Option(`${p.label} · ${pct(p.rate)}`, p.id));
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    const previewLoan = () => {
+      const p = products.find(x => x.id === sel.value); const amt = +$('loanAmount').value;
+      if (!p) { $('loanPreview').innerHTML = ''; $('borrowBtn').disabled = true; return; }
+      const ok = amt > 0 && amt <= p.max + 0.5;
+      const pay = monthlyPayment(amt, p.rate, p.termTurns);
+      $('loanPreview').innerHTML = `<div class="kv"><span>Payment</span><b>${fmt$(pay)}/mo for ${p.termTurns / 12} yrs</b></div><div class="kv"><span>Total interest</span><b>${fmt$(pay * p.termTurns - amt)}</b></div><div class="kv"><span>Limit</span><b class="${ok ? '' : 'bad'}">${fmt$(p.max)}</b></div>`;
+      $('borrowBtn').disabled = !ok;
+    };
+    sel.onchange = previewLoan; $('loanAmount').oninput = previewLoan; previewLoan();
+    $('borrowBtn').onclick = () => { const p = products.find(x => x.id === sel.value); replaceState(borrow(game.state, p, +$('loanAmount').value)); };
+    $('borrowHint').textContent = st.incorporated
+      ? (st.credit.grade === 'F' ? 'Bond market is closed at F. The county still lends, at a penalty.' : 'Bonds are capped at 8.6% of assessed value. Grow the tax base to borrow more.')
+      : 'Townships get county loans only — flat caps, higher rates. Incorporate to issue bonds.';
+    $('notes').innerHTML = st.debt.map(d => `<div class="card" style="padding:8px 12px"><div class="kv"><span>${d.label}</span><b>${fmt$(d.principal)}</b></div><div class="kv"><span>${pct(d.rate)} · ${fmt$(d.payment)}/mo</span><b>${d.remainingTurns} mo left</b></div></div>`).join('');
+
     // budget card
     $('budgetCard').innerHTML = `
       <div class="kv"><span>Public Works ops</span><b>${fmt$(st.budget.publicWorks.operations)}/yr</b></div>
@@ -350,21 +396,24 @@
       if (lt.lotsCompleted) bits.push(`${lt.lotsCompleted} home${lt.lotsCompleted > 1 ? 's' : ''} finished and joined the tax rolls.`);
       if (lt.event?.type === 'storm') bits.push(`<span class="warn">A storm tore up ${lt.event.target}</span> (−${lt.event.damage} condition).`);
       if (lt.event?.type === 'grant') bits.push(`<span class="good">The county sent a ${fmt$(lt.event.amount)} grant.</span>`);
+      if (lt.debtService > 0) bits.push(`Debt service ${fmt$(lt.debtService)}.`);
+      if (st.credit.reviewedTurn === st.turn && st.turn) bits.push(`<b>Annual credit review: ${st.credit.grade}</b>${st.credit.previous !== st.credit.grade ? ` (was ${st.credit.previous})` : ''} — reserves ${st.credit.inputs.reserveMonths.toFixed(1)} mo, ${st.credit.inputs.deficitMonths} deficit month${st.credit.inputs.deficitMonths === 1 ? '' : 's'}, debt service ${(st.credit.inputs.debtServiceRatio * 100).toFixed(0)}% of revenue.`);
       if (st.deficitStreak) bits.push(`<span class="bad">Treasury is negative — ${st.deficitStreak} month${st.deficitStreak > 1 ? 's' : ''} running.</span>`);
       $('monthCard').innerHTML = `<h3>${monthLabel(st.turn, cfg)}</h3><p>${bits.join(' ')}</p>`;
     }
 
     // ledger
     const every = $('allRows').checked ? 1 : 12;
-    let html = '<tr><th class="l">turn</th><th class="l">month</th><th>pop</th><th>desir</th><th>road</th><th>treasury</th><th>in/mo</th><th>out/mo</th><th>lots</th><th>homes</th><th class="l">notes</th></tr>';
+    let html = '<tr><th class="l">turn</th><th class="l">month</th><th>pop</th><th>desir</th><th>road</th><th>treasury</th><th>debt</th><th>cr</th><th>in/mo</th><th>out/mo</th><th>lots</th><th>homes</th><th class="l">notes</th></tr>';
     let carried = [];
     for (const r of game.rows) {
       const l = r.lastTurn;
       if (l.event) carried.push(l.event.type);
       if (l.lotsZoned) carried.push('zoned');
+      for (const e of r.log) if (e.turn === r.turn && (e.type === 'borrowed' || e.type === 'purchase')) carried.push(e.type === 'borrowed' ? `borrowed ${fmt$(e.amount)}` : 'bought plow');
       if (r.turn % every && r.turn !== game.rows.length - 1) continue;
       const rd = r.infrastructure.reduce((s, i) => s + i.condition, 0) / r.infrastructure.length;
-      html += `<tr class="${r.incorporated ? 'inc' : ''} ${r.turn % 12 === 0 && r.turn ? 'year' : ''}"><td class="l">${r.turn}</td><td class="l">${r.turn ? monthLabel(r.turn, cfg) : '—'}</td><td>${r.population}</td><td>${r.desirability.toFixed(0)}</td><td>${rd.toFixed(0)}</td><td>${fmt$(r.treasury)}</td><td>${fmt$(l.revenue ?? 0)}</td><td>${fmt$(l.expenses ?? 0)}</td><td>${r.lots.length}</td><td>${r.lots.filter(x => x.state === 'occupied').length}</td><td class="l">${(l.snow ? '❄ ' : '') + carried.join(', ')}</td></tr>`;
+      html += `<tr class="${r.incorporated ? 'inc' : ''} ${r.turn % 12 === 0 && r.turn ? 'year' : ''}"><td class="l">${r.turn}</td><td class="l">${r.turn ? monthLabel(r.turn, cfg) : '—'}</td><td>${r.population}</td><td>${r.desirability.toFixed(0)}</td><td>${rd.toFixed(0)}</td><td>${fmt$(r.treasury)}</td><td>${fmt$(r.debt.reduce((s, d) => s + d.principal, 0))}</td><td class="${gradeCls(r.credit.grade)}">${r.credit.grade}</td><td>${fmt$(l.revenue ?? 0)}</td><td>${fmt$(l.expenses ?? 0)}</td><td>${r.lots.length}</td><td>${r.lots.filter(x => x.state === 'occupied').length}</td><td class="l">${(l.snow ? '❄ ' : '') + carried.join(', ')}</td></tr>`;
       carried = [];
     }
     $('out').innerHTML = html;
@@ -377,7 +426,7 @@
     let st = createTurnZero(scenarioBudget($('scenario').value), cfg);
     const plowId = $('benchPlow').value; if (plowId && canAfford(st, PLOW_BIDS.find(b => b.id === plowId))) st = buyAsset(st, PLOW_BIDS.find(b => b.id === plowId));
     const rows = [st];
-    for (let t = 0; t < +$('turns').value; t++) { st = resolveTurn(st, rng, cfg); if ($('autoInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st); }
+    for (let t = 0; t < +$('turns').value; t++) { st = resolveTurn(st, rng, cfg); if (st.turn % 12 === 0) st = annualReview(st, cfg, rng); if ($('autoInc').checked && canIncorporate(st, cfg)) st = incorporate(st); rows.push(st); }
     game = { cfg, rng, state: st, rows };
     render();
   });
